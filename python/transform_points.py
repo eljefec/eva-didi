@@ -93,11 +93,7 @@ def birds_eye_point_cloud(points,
     # Convert from numpy array to a PIL image
     im = Image.fromarray(im)
 
-    # SAVE THE IMAGE
-    if saveto is not None:
-        im.save(saveto)
-    else:
-        im.show()
+    return im
 
 # ==============================================================================
 #                                                        BIRDS_EYE_HEIGHT_SLICES
