@@ -13,8 +13,34 @@ def process_pc2(msg):
     lidar = pc2.read_points(msg)
     lidar = np.array(list(lidar))
     print(msg.header.seq)
-    birds_eye = tp.birds_eye_point_cloud(lidar, side_range=(-10, 10), fwd_range=(-10, 10), res=0.1)
+    birds_eye = tp.birds_eye_point_cloud(lidar,
+                                         side_range=(-10, 10),
+                                         fwd_range=(-10, 10),
+                                         res=0.1)
     birds_eye.save('/data/output/birds_eye/' + str(msg.header.seq) + '.png')
+
+    slices = tp.birds_eye_height_slices(lidar,
+                                        n_slices=8,
+                                        height_range=(-2.0, 0.27),
+                                        side_range=(-10, 10),
+                                        fwd_range=(0, 20),
+                                        res=0.1)
+
+    # VISUALISE THE SEPARATE LAYERS IN MATPLOTLIB
+    import matplotlib.pyplot as plt
+    dpi = 100       # Image resolution
+    fig, axes = plt.subplots(2, 4, figsize=(600/dpi, 300/dpi), dpi=dpi)
+    axes = axes.flatten()
+    for i,ax in enumerate(axes):
+        ax.imshow(slices[:,:,i], cmap="gray", vmin=0, vmax=255)
+        ax.set_axis_bgcolor((0, 0, 0))  # Set regions with no points to black
+        ax.xaxis.set_visible(False)     # Do not draw axis tick marks
+        ax.yaxis.set_visible(False)     # Do not draw axis tick marks
+        ax.set_title(i, fontdict={"size": 10, "color":"#FFFFFF"})
+        fig.subplots_adjust(wspace=0.20, hspace=0.20)
+
+    fig.savefig('/data/output/slices/' + str(msg.header.seq) + '.png')
+    plt.close(fig)
 
 class PointCloudProcessor:
     def __init__(self):
