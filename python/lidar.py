@@ -1,5 +1,6 @@
 import numpy as np
 import os
+from PIL import Image
 import rosbag
 import rospy
 import sensor_msgs.point_cloud2 as pc2
@@ -18,6 +19,15 @@ def process_pc2(msg):
                                          fwd_range=(-10, 10),
                                          res=0.1)
     birds_eye.save('/data/output/birds_eye/' + str(msg.header.seq) + '.png')
+
+    birds_eye2 = tp.point_cloud_2_birdseye(lidar,
+                                           res=0.1,
+                                           side_range=(-10, 10),
+                                           fwd_range=(-10, 10),
+                                           height_range=(-2, 2))
+
+    im_birds_eye2 = Image.fromarray(birds_eye2)
+    im_birds_eye2.save('/data/output/birds_eye2/' + str(msg.header.seq) + '.png')
 
     slices = tp.birds_eye_height_slices(lidar,
                                         n_slices=8,
