@@ -1,3 +1,4 @@
+import image as imlib
 import numpy as np
 import os
 from PIL import Image
@@ -7,10 +8,6 @@ import sensor_msgs.point_cloud2 as pc2
 import transform_points as tp
 from velodyne_msgs.msg import VelodyneScan
 from sensor_msgs.msg import PointCloud2
-
-def save_numpy_as_image(nparr, filename):
-    im = Image.fromarray(nparr)
-    im.save(filename)
 
 def process_pc2(msg):
     # CONVERT MESSAGE TO A NUMPY ARRAY OF POINT CLOUDS
@@ -30,7 +27,7 @@ def process_pc2(msg):
                                            fwd_range=(-10, 10),
                                            height_range=(-2, 2))
 
-    save_numpy_as_image(birds_eye2, '/data/output/birds_eye2/' + str(msg.header.seq) + '.png')
+    imlib.save_np_image(birds_eye2, 'birds_eye2/' + str(msg.header.seq) + '.png')
 
     # These values are for Velodyne HDL-32E.
     panorama = tp.point_cloud_to_panorama(lidar,
@@ -40,7 +37,7 @@ def process_pc2(msg):
                                             d_range = (0, 100),
                                             y_fudge = 3)
 
-    save_numpy_as_image(panorama, '/data/output/panorama/' + str(msg.header.seq) + '.png')
+    imlib.save_np_image(panorama, 'panorama/' + str(msg.header.seq) + '.png')
 
     slices = tp.birds_eye_height_slices(lidar,
                                         n_slices=8,
