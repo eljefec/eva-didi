@@ -14,6 +14,10 @@ def read_images(msg_count = None):
     bag_name = '2.bag'
     bag_file = os.path.join(data_dir, bag_name)
 
+    output_dir = '/data/output/image_raw'
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+
     bag = rosbag.Bag(bag_file, "r")
     messages = bag.read_messages(topics=["/image_raw"])
     num_images = bag.get_message_count(topic_filters=["/image_raw"])
