@@ -63,8 +63,9 @@ def process_pc2(msg):
     plt.close(fig)
 
 class PointCloudProcessor:
-    def __init__(self):
+    def __init__(self, hertz):
         rospy.init_node('PointCloudProcessor', anonymous=True)
+        self.rate = rospy.Rate(hertz)
 
     def add_subscriber(self, pc2_callback):
         rospy.Subscriber('/velodyne_points', PointCloud2, pc2_callback)
@@ -91,16 +92,35 @@ class PointCloudProcessor:
 
         print('msg_count: ', msg_count)
 
+        published_count = 0
         for i in range(msg_count):
             topic, msg, t = messages.next()
             pub.publish(msg)
+            self.rate.sleep()
+            published_count += 1
 
-processor = PointCloudProcessor()
-processor.add_subscriber(process_pc2)
+        print('published_count: {0}'.format(published_count))
 
-# Read rosbag.
-data_dir = '/data/Didi-Release-2/Data/1'
-bag_name = '2.bag'
-processor.read_bag(data_dir, bag_name)
+import threading
+class MessageCounter:
+    def __init__(self):
+        self.count = 0
+        self.lock = threading.Lock()
 
-processor.spin()
+    def on_msg(self, msg):
+        with self.lock:
+            self.count += 1
+        print('Message Count: {0}'.format(self.count))
+
+if __name__ == '__main__':
+    counter = MessageCounter()
+    processor = PointCloudProcessor(10)
+    # processor.add_subscriber(process_pc2)
+    processor.add_subscriber(counter.on_msg)
+
+    # Read rosbag.
+    data_dir = '/data/Didi-Release-2/Data/1'
+    bag_name = '2.bag'
+    processor.read_bag(data_dir, bag_name)
+
+    processor.spin()
