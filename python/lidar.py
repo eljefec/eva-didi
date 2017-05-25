@@ -9,6 +9,31 @@ import transform_points as tp
 from velodyne_msgs.msg import VelodyneScan
 from sensor_msgs.msg import PointCloud2
 
+class PointCloudMsg:
+    def __init__(self, msg):
+        lidar = pc2.read_points(msg)
+        lidar = np.array(list(lidar))
+        self.pointcloud = lidar
+        self.header = msg.header
+
+class PointCloudMsgAccumulator:
+    def __init__(self):
+        self.msgs = []
+
+    def on_msg(self, msg):
+        self.msgs.append(PointCloudMsg(msg))
+
+def read_pointclouds(bag_file):
+    accumulator = PointCloudMsgAccumulator()
+    counter = MessageCounter()
+    processor = PointCloudProcessor(20)
+    processor.add_subscriber(accumulator.on_msg)
+    processor.add_subscriber(counter.on_msg)
+    processor.read_bag(bag_file)
+    import time
+    time.sleep(3)
+    return accumulator.msgs
+
 def process_pc2(msg):
     # CONVERT MESSAGE TO A NUMPY ARRAY OF POINT CLOUDS
     # creates a Nx5 array: [x, y, z, reflectance, ring]
@@ -74,9 +99,7 @@ class PointCloudProcessor:
         rospy.spin()
 
     # Precondition: velodyne_pointcloud cloud_node is running.
-    def read_bag(self, data_dir, bag_name, msg_count = None):
-        bag_file = os.path.join(data_dir, bag_name)
-
+    def read_bag(self, bag_file, msg_count = None):
         # Open rosbag.
         bag = rosbag.Bag(bag_file, "r")
         messages = bag.read_messages(topics=["/velodyne_packets"])
@@ -110,7 +133,8 @@ class MessageCounter:
     def on_msg(self, msg):
         with self.lock:
             self.count += 1
-        print('Message Count: {0}'.format(self.count))
+        # print('Message Count: {0}'.format(self.count))
+        print('cnt: {0} header: {1}'.format(self.count, msg.header))
 
 import pickle
 class MessagePickler:
@@ -125,6 +149,9 @@ class MessagePickler:
                 please_pickle = True
                 self.pickled = True
         if (please_pickle):
+            with open('header.p', 'wb') as f:
+                pickle.dump(msg.header, f)
+
             lidar = pc2.read_points(msg)
             lidar = np.array(list(lidar))
             with open('pointcloud.p', 'wb') as f:
@@ -161,16 +188,23 @@ class MessagePickler:
                 pickle.dump(slices, f)
 
 if __name__ == '__main__':
-    counter = MessageCounter()
-    pickler = MessagePickler()
-    processor = PointCloudProcessor(10)
-    # processor.add_subscriber(process_pc2)
-    # processor.add_subscriber(counter.on_msg)
-    processor.add_subscriber(pickler.on_msg)
-
-    # Read rosbag.
     data_dir = '/data/Didi-Release-2/Data/1'
     bag_name = '2.bag'
-    processor.read_bag(data_dir, bag_name)
+    bag_file = os.path.join(data_dir, bag_name)
+
+    pointclouds = read_pointclouds(bag_file)
+    print('len(pointclouds): {0}'.format(len(pointclouds)))
+
+    exit()
+
+    counter = MessageCounter()
+    pickler = MessagePickler()
+    processor = PointCloudProcessor(40)
+    # processor.add_subscriber(process_pc2)
+    processor.add_subscriber(counter.on_msg)
+    # processor.add_subscriber(pickler.on_msg)
+
+    # Read rosbag.
+    processor.read_bag(bag_file)
 
     processor.spin()
