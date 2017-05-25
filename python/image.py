@@ -1,40 +1,54 @@
 import cv2
 import numpy as np
 import os
-from PIL import Image
 import rosbag
 
+class ImageMsg:
+    def __init__(self, msg):
+        self.header = msg.header
+        self.height = msg.height
+        self.width = msg.width
+        img = np.fromstring(msg.data, dtype=np.uint8)
+        img = img.reshape(msg.height, msg.width)
+        img = cv2.cvtColor(img, cv2.COLOR_BAYER_GR2BGR)
+        self.bgr = img
+
 def save_np_image(nparr, relative):
+    from PIL import Image
     im = Image.fromarray(nparr)
     full_path = os.path.join('/data/output/', relative)
     im.save(full_path)
 
-def read_images(msg_count = None):
-    data_dir = '/data/Didi-Release-2/Data/1'
-    bag_name = '2.bag'
-    bag_file = os.path.join(data_dir, bag_name)
-
-    output_dir = '/data/output/image_raw'
-    if not os.path.exists(output_dir):
-        os.makedirs(output_dir)
+def read_images(bag_file):
+    image_msgs = []
 
     bag = rosbag.Bag(bag_file, "r")
     messages = bag.read_messages(topics=["/image_raw"])
     num_images = bag.get_message_count(topic_filters=["/image_raw"])
 
-    if msg_count is None:
-        msg_count = num_images
-    else:
-        msg_count = min(msg_count, num_images)
-
-    for i in range(msg_count):
+    for i in range(num_images):
         topic, msg, t  = messages.next()
 
-        img = np.fromstring(msg.data, dtype=np.uint8)
-        img = img.reshape(msg.height, msg.width)
+        image_msgs.append(ImageMsg(msg))
 
-        img = cv2.cvtColor(img, cv2.COLOR_BAYER_GR2BGR)
-        save_np_image(img, 'image_raw/' + str(msg.header.seq) + '.png')
+    return image_msgs
+
+def save_images(bag_file, msg_count = None):
+    image_msgs = read_images(bag_file)
+
+    output_dir = '/data/output/image_raw'
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+
+    count = 0
+    for msg in image_msgs:
+        save_np_image(msg.bgr, 'image_raw/' + str(msg.header.seq) + '.png')
+        count += 1
+        if count == msg_count:
+            return
 
 if __name__ == '__main__':
-    read_images(5)
+    data_dir = '/data/Didi-Release-2/Data/1'
+    bag_name = '2.bag'
+    bag_file = os.path.join(data_dir, bag_name)
+    save_images(bag_file, 5)
