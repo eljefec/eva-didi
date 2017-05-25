@@ -112,11 +112,61 @@ class MessageCounter:
             self.count += 1
         print('Message Count: {0}'.format(self.count))
 
+import pickle
+class MessagePickler:
+    def __init__(self):
+        self.pickled = False
+        self.lock = threading.Lock()
+
+    def on_msg(self, msg):
+        please_pickle = False
+        with self.lock:
+            if not self.pickled:
+                please_pickle = True
+                self.pickled = True
+        if (please_pickle):
+            lidar = pc2.read_points(msg)
+            lidar = np.array(list(lidar))
+            with open('pointcloud.p', 'wb') as f:
+                pickle.dump(lidar, f)
+
+            print(lidar.shape)
+            print(lidar[1:2])
+
+            birds_eye = tp.point_cloud_2_birdseye(lidar,
+                                                   res=0.1,
+                                                   side_range=(-10, 10),
+                                                   fwd_range=(-10, 10),
+                                                   height_range=(-2, 2))
+            with open('birdseye.p', 'wb') as f:
+                pickle.dump(birds_eye, f)
+
+            panorama = tp.point_cloud_to_panorama(lidar,
+                                                    v_res = 1.33,
+                                                    h_res = 0.4,
+                                                    v_fov = (-30.67, 10.67),
+                                                    d_range = (0, 100),
+                                                    y_fudge = 3)
+            with open('panorama.p', 'wb') as f:
+                pickle.dump(panorama, f)
+
+            slices = tp.birds_eye_height_slices(lidar,
+                                                n_slices=8,
+                                                height_range=(-2.0, 0.27),
+                                                side_range=(-10, 10),
+                                                fwd_range=(0, 20),
+                                                res=0.1)
+
+            with open('slices.p', 'wb') as f:
+                pickle.dump(slices, f)
+
 if __name__ == '__main__':
     counter = MessageCounter()
+    pickler = MessagePickler()
     processor = PointCloudProcessor(10)
     # processor.add_subscriber(process_pc2)
-    processor.add_subscriber(counter.on_msg)
+    # processor.add_subscriber(counter.on_msg)
+    processor.add_subscriber(pickler.on_msg)
 
     # Read rosbag.
     data_dir = '/data/Didi-Release-2/Data/1'
