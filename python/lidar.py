@@ -88,9 +88,10 @@ def process_pc2(msg):
     plt.close(fig)
 
 class PointCloudProcessor:
-    def __init__(self, hertz):
+    def __init__(self, hertz, subscriber_is_full = None):
         rospy.init_node('PointCloudProcessor', anonymous=True)
         self.rate = rospy.Rate(hertz)
+        self.subscriber_is_full = subscriber_is_full
 
     def add_subscriber(self, pc2_callback):
         rospy.Subscriber('/velodyne_points', PointCloud2, pc2_callback)
@@ -119,7 +120,11 @@ class PointCloudProcessor:
         for i in range(msg_count):
             topic, msg, t = messages.next()
             pub.publish(msg)
-            self.rate.sleep()
+            if self.subscriber_is_full is None:
+                self.rate.sleep()
+            else:
+                while self.subscriber_is_full():
+                    self.rate.sleep()
             published_count += 1
 
         print('published_count: {0}'.format(published_count))
