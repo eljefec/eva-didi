@@ -23,7 +23,7 @@ class OrderChecker:
 
             self.prev_sample = sample
 
-class DataPrep:
+class TrainDataStream:
     def __init__(self):
         self.msg_queue = sensor.SensorMsgQueue(maxsize = 10, hertz = 10)
         self.prev_image = None
@@ -72,11 +72,11 @@ class DataPrep:
         return sample
 
 if __name__ == '__main__':
-    dataprep = DataPrep()
-    dataprep.start_read('/data/Didi-Release-2/Data/1/2.bag', '/data/output/test/2/tracklet_labels.xml')
+    datastream = TrainDataStream()
+    datastream.start_read('/data/Didi-Release-2/Data/1/2.bag', '/data/output/test/2/tracklet_labels.xml')
     samples = []
-    while not dataprep.empty():
-        sample = dataprep.get_next_train_sample()
+    while not datastream.empty():
+        sample = datastream.get_next_train_sample()
         samples.append(sample)
         print('track: {0}'.format(sample.pose))
         if sample.image is not None:
