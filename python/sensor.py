@@ -9,7 +9,7 @@ import time
 class SensorMsgQueue:
     def __init__(self, maxsize):
         self.image_queue = Queue.Queue(maxsize)
-        self.lidar_queue = Queue.Queue(maxsize)
+        self.lidar_queue = Queue.Queue()
 
         self.next_image = None
         self.next_lidar = None
@@ -17,7 +17,7 @@ class SensorMsgQueue:
         self.image_thread = None
         self.lidar_thread = None
 
-        self.lidar_processor = PointCloudProcessor(10, self.lidar_queue_is_full)
+        self.lidar_processor = PointCloudProcessor(10)
         self.lidar_processor.add_subscriber(self.on_lidar_msg)
 
     def empty(self):
