@@ -2,6 +2,7 @@ import image as imlib
 import numpy as np
 import os
 from PIL import Image
+import Queue
 import rosbag
 import rospy
 import sensor_msgs.point_cloud2 as pc2
@@ -88,10 +89,11 @@ def process_pc2(msg):
     plt.close(fig)
 
 class PointCloudProcessor:
-    def __init__(self, hertz, subscriber_is_full = None):
+    # If token_queue is provided, then it limits message publishing. This will publish a message for each token in token_queue.
+    def __init__(self, hertz = 10, token_queue = None):
         rospy.init_node('PointCloudProcessor', anonymous=True)
         self.rate = rospy.Rate(hertz)
-        self.subscriber_is_full = subscriber_is_full
+        self.token_queue = token_queue
 
     def add_subscriber(self, pc2_callback):
         rospy.Subscriber('/velodyne_points', PointCloud2, pc2_callback)
@@ -107,7 +109,7 @@ class PointCloudProcessor:
         n_lidar = bag.get_message_count(topic_filters=["/velodyne_packets"])
 
         # Publish velodyne packets from bag to topic.
-        pub = rospy.Publisher('/velodyne_packets', VelodyneScan, queue_size=600)
+        pub = rospy.Publisher('/velodyne_packets', VelodyneScan, queue_size=200)
 
         if msg_count is None:
             msg_count = n_lidar
@@ -118,28 +120,33 @@ class PointCloudProcessor:
 
         published_count = 0
         for i in range(msg_count):
+            if self.token_queue is not None:
+                token = self.token_queue.get(block = True)
             topic, msg, t = messages.next()
             pub.publish(msg)
-            if self.subscriber_is_full is None:
-                self.rate.sleep()
-            else:
-                while self.subscriber_is_full():
-                    self.rate.sleep()
             published_count += 1
+            if self.token_queue is None:
+                self.rate.sleep()
 
         print('published_count: {0}'.format(published_count))
+
+TOKEN = 1234
 
 import threading
 class MessageCounter:
     def __init__(self):
         self.count = 0
         self.lock = threading.Lock()
+        self.token_queue = Queue.Queue()
+        for i in range(200):
+            self.token_queue.put(TOKEN)
 
     def on_msg(self, msg):
         with self.lock:
             self.count += 1
         # print('Message Count: {0}'.format(self.count))
         print('cnt: {0} header: {1}'.format(self.count, msg.header))
+        self.token_queue.put(TOKEN)
 
 import pickle
 class MessagePickler:
@@ -197,14 +204,12 @@ if __name__ == '__main__':
     bag_name = '2.bag'
     bag_file = os.path.join(data_dir, bag_name)
 
-    pointclouds = read_pointclouds(bag_file)
-    print('len(pointclouds): {0}'.format(len(pointclouds)))
-
-    exit()
+    # pointclouds = read_pointclouds(bag_file)
+    # print('len(pointclouds): {0}'.format(len(pointclouds)))
 
     counter = MessageCounter()
     pickler = MessagePickler()
-    processor = PointCloudProcessor(40)
+    processor = PointCloudProcessor(token_queue = counter.token_queue)
     # processor.add_subscriber(process_pc2)
     processor.add_subscriber(counter.on_msg)
     # processor.add_subscriber(pickler.on_msg)

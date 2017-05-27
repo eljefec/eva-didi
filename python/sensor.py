@@ -5,11 +5,19 @@ import rosbag
 from threading import Thread
 import time
 
+# The value is meaningless.
+TOKEN = 70439
+
 # Precondition: roscore and velodyne node are running.
 class SensorMsgQueue:
     def __init__(self, maxsize):
         self.image_queue = Queue.Queue(maxsize)
         self.lidar_queue = Queue.Queue(maxsize)
+        self.lidar_token_queue = Queue.Queue(maxsize)
+
+        # Initialize token queue.
+        for i in range(maxsize):
+            self.lidar_token_queue.put(TOKEN)
 
         self.next_image = None
         self.next_lidar = None
@@ -17,7 +25,7 @@ class SensorMsgQueue:
         self.image_thread = None
         self.lidar_thread = None
 
-        self.lidar_processor = PointCloudProcessor(10, self.lidar_queue_is_full)
+        self.lidar_processor = PointCloudProcessor(token_queue = self.lidar_token_queue)
         self.lidar_processor.add_subscriber(self.on_lidar_msg)
 
     def empty(self):
@@ -38,6 +46,8 @@ class SensorMsgQueue:
         if self.next_lidar is None:
             try:
                 self.next_lidar = self.lidar_queue.get_nowait()
+                # Got lidar message, so return token to queue.
+                self.lidar_token_queue.put(TOKEN)
             except Queue.Empty:
                 pass
 
@@ -88,7 +98,7 @@ class SensorMsgQueue:
             self.image_queue.put(msg)
 
     def lidar_queue_is_full(self):
-        return self.lidar_queue.full()
+        return self.lidar_queue.qsize() >= self.lidar_queue_threshold
 
     def on_lidar_msg(self, msg):
         self.lidar_queue.put(msg)
