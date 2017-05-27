@@ -8,6 +8,21 @@ class TrainSample:
         self.image = image
         self.lidar = lidar
 
+class OrderChecker:
+    def __init__(self):
+        self.prev_sample = None
+
+    def check_sample(self, sample):
+        if self.prev_sample is not None:
+            assert(sample.lidar.stamp <= sample.image.stamp)
+
+            assert(prev_sample.image.stamp <= sample.image.stamp)
+            assert(prev_sample.lidar.stamp <= sample.lidar.stamp)
+            assert(prev_sample.image.stamp <= sample.lidar.stamp)
+            assert(prev_sample.lidar.stamp <= sample.image.stamp)
+
+            self.prev_sample = sample
+
 class DataPrep:
     def __init__(self):
         self.msg_queue = sensor.SensorMsgQueue(maxsize = 10, hertz = 10)
@@ -15,6 +30,7 @@ class DataPrep:
         self.prev_lidar = None
         self.tracklet = None
         self.frame = 0
+        self.order_checker = OrderChecker()
 
     def start_read(self, bag_file, tracklet_file):
         tracklets = parse_tracklet.parse_xml(tracklet_file)
@@ -49,7 +65,11 @@ class DataPrep:
             elif msg.header.frame_id == 'velodyne':
                 self.prev_lidar = msg
 
-        return TrainSample(track, self.prev_image, self.prev_lidar)
+        sample = TrainSample(track, self.prev_image, self.prev_lidar)
+
+        self.order_checker.check_sample(sample)
+
+        return sample
 
 if __name__ == '__main__':
     dataprep = DataPrep()
