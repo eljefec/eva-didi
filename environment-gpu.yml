@@ -26,3 +26,4 @@ dependencies:
         - keras==1.2.1
         - rospkg
         - catkin-pkg
+        - monotonic

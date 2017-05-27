@@ -5,6 +5,7 @@ from PIL import Image
 import rosbag
 import rospy
 import sensor_msgs.point_cloud2 as pc2
+import time
 import transform_points as tp
 from velodyne_msgs.msg import VelodyneScan
 from sensor_msgs.msg import PointCloud2
@@ -30,7 +31,6 @@ def read_pointclouds(bag_file):
     processor.add_subscriber(accumulator.on_msg)
     processor.add_subscriber(counter.on_msg)
     processor.read_bag(bag_file)
-    import time
     time.sleep(3)
     return accumulator.msgs
 
@@ -88,10 +88,9 @@ def process_pc2(msg):
     plt.close(fig)
 
 class PointCloudProcessor:
-    def __init__(self, hertz, subscriber_is_full = None):
+    def __init__(self, hertz):
         rospy.init_node('PointCloudProcessor', anonymous=True)
         self.rate = rospy.Rate(hertz)
-        self.subscriber_is_full = subscriber_is_full
 
     def add_subscriber(self, pc2_callback):
         rospy.Subscriber('/velodyne_points', PointCloud2, pc2_callback)
@@ -120,12 +119,8 @@ class PointCloudProcessor:
         for i in range(msg_count):
             topic, msg, t = messages.next()
             pub.publish(msg)
-            if self.subscriber_is_full is None:
-                self.rate.sleep()
-            else:
-                while self.subscriber_is_full():
-                    self.rate.sleep()
             published_count += 1
+            self.rate.sleep()
 
         print('published_count: {0}'.format(published_count))
 
