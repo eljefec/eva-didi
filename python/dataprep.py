@@ -2,7 +2,7 @@ import numpy as np
 import sensor
 import parse_tracklet
 
-class TrainSample:
+class TrainMsg:
     def __init__(self, pose, image, lidar):
         self.pose = pose
         self.image = image
@@ -23,7 +23,7 @@ class OrderChecker:
 
             self.prev_sample = sample
 
-class TrainDataStream:
+class TrainMsgStream:
     def __init__(self):
         self.msg_queue = sensor.SensorMsgQueue(maxsize = 10, hertz = 10)
         self.prev_image = None
@@ -44,7 +44,7 @@ class TrainDataStream:
         return self.frame >= self.tracklet.num_frames or self.msg_queue.empty()
 
     # Precondition: empty() returns False
-    def get_next_train_sample(self):
+    def get_next_msg(self):
         # track: size, trans, rots
         track = np.zeros(9, dtype=float)
         # size
@@ -65,18 +65,18 @@ class TrainDataStream:
             elif msg.header.frame_id == 'velodyne':
                 self.prev_lidar = msg
 
-        sample = TrainSample(track, self.prev_image, self.prev_lidar)
+        sample = TrainMsg(track, self.prev_image, self.prev_lidar)
 
         self.order_checker.check_sample(sample)
 
         return sample
 
 if __name__ == '__main__':
-    datastream = TrainDataStream()
-    datastream.start_read('/data/Didi-Release-2/Data/1/2.bag', '/data/output/test/2/tracklet_labels.xml')
+    msgstream = TrainMsgStream()
+    msgstream.start_read('/data/Didi-Release-2/Data/1/2.bag', '/data/output/test/2/tracklet_labels.xml')
     samples = []
-    while not datastream.empty():
-        sample = datastream.get_next_train_sample()
+    while not msgstream.empty():
+        sample = msgstream.get_next_msg()
         samples.append(sample)
         print('track: {0}'.format(sample.pose))
         if sample.image is not None:
