@@ -66,7 +66,7 @@ class SensorMsgQueue:
 
     # Fork threads to read from bag and fill queues.
     # Returns error if bag read is in progress.
-    def start_read_bag(self, bag_file, warmup_secs):
+    def start_read(self, bag_file, warmup_secs):
         self.image_thread = Thread(target=self.read_images, args=(bag_file,))
         self.image_thread.start()
 
@@ -104,7 +104,7 @@ class SensorMsgQueue:
 
 if __name__ == '__main__':
     msg_queue = SensorMsgQueue(maxsize = 10, hertz = 20)
-    msg_queue.start_read_bag('/data/Didi-Release-2/Data/1/2.bag', 5)
+    msg_queue.start_read('/data/Didi-Release-2/Data/1/2.bag', 5)
 
     msg_counts = dict()
 
