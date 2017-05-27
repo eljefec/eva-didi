@@ -9,6 +9,7 @@ import time
 # Precondition: roscore and velodyne node are running.
 class SensorMsgQueue:
     def __init__(self, maxsize, hertz):
+        self.sleep_secs = 1 / hertz
         self.image_queue = Queue.Queue(maxsize)
         self.lidar_queue = Queue.Queue()
 
@@ -31,6 +32,8 @@ class SensorMsgQueue:
     # Returns messages in sequence.
     # None does not mean queue is empty. Call empty().
     def next(self):
+        time.sleep(0.03)
+
         if self.next_image is None:
             try:
                 self.next_image = self.image_queue.get_nowait()
@@ -66,7 +69,7 @@ class SensorMsgQueue:
 
     # Fork threads to read from bag and fill queues.
     # Returns error if bag read is in progress.
-    def start_read(self, bag_file, warmup_secs):
+    def start_read(self, bag_file, warmup_secs = 5):
         self.image_thread = Thread(target=self.read_images, args=(bag_file,))
         self.image_thread.start()
 
@@ -89,6 +92,7 @@ class SensorMsgQueue:
         for i in range(num_images):
             topic, msg, t  = messages.next()
             self.image_queue.put(msg)
+            time.sleep(self.sleep_secs)
 
     def lidar_queue_is_full(self):
         return self.lidar_queue.full()
@@ -103,7 +107,7 @@ class SensorMsgQueue:
         # self.lidar_processor.spin()
 
 if __name__ == '__main__':
-    msg_queue = SensorMsgQueue(maxsize = 10, hertz = 20)
+    msg_queue = SensorMsgQueue(maxsize = 10, hertz = 10)
     msg_queue.start_read('/data/Didi-Release-2/Data/1/2.bag', 5)
 
     msg_counts = dict()
@@ -111,7 +115,7 @@ if __name__ == '__main__':
     while not msg_queue.empty():
         msg = msg_queue.next()
         if msg is not None:
-            # print('DEBUG: Got msg. {0}'.format(msg.header))
+            print('DEBUG: Got msg. {0} {1} {2}'.format(msg.header.stamp, msg.header.seq, msg.header.frame_id))
             key = msg.header.frame_id
             if key not in msg_counts:
                 msg_counts[key] = 1
