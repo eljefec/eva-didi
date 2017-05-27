@@ -24,10 +24,12 @@ class SensorMsgQueue:
         self.lidar_processor.add_subscriber(self.on_lidar_msg)
 
     def empty(self):
-        return (not self.image_thread.is_alive()
-                and not self.lidar_thread.is_alive()
-                and self.image_queue.empty()
-                and self.lidar_queue.empty())
+        return ((self.image_thread is None
+                 and self.lidar_thread is None)
+             or (not self.image_thread.is_alive()
+                 and not self.lidar_thread.is_alive()
+                 and self.image_queue.empty()
+                 and self.lidar_queue.empty()))
 
     # Returns messages in sequence.
     # None does not mean queue is empty. Call empty().
