@@ -10,6 +10,23 @@ import transform_points as tp
 from velodyne_msgs.msg import VelodyneScan
 from sensor_msgs.msg import PointCloud2
 
+def lidar_to_panorama(lidar):
+    # These values are for Velodyne HDL-32E.
+    return tp.point_cloud_to_panorama(lidar,
+                                        v_res = 1.33,
+                                        h_res = 0.4,
+                                        v_fov = (-30.67, 10.67),
+                                        d_range = (0, 100),
+                                        y_fudge = 3)
+
+def lidar_to_slices(lidar):
+    return tp.birds_eye_height_slices(lidar,
+                                        n_slices=8,
+                                        height_range=(-2.0, 0.27),
+                                        side_range=(-10, 10),
+                                        fwd_range=(0, 20),
+                                        res=0.1)
+
 class PointCloudMsg:
     def __init__(self, msg):
         lidar = pc2.read_points(msg)
