@@ -119,7 +119,7 @@ class PointCloudConverter:
             axes = axes.flatten()
             for i,ax in enumerate(axes):
                 ax.imshow(slices[:,:,i], cmap="gray", vmin=0, vmax=255)
-                ax.set_axis_bgcolor((0, 0, 0))  # Set regions with no points to black
+                ax.set_facecolor('black')  # Set regions with no points to black
                 ax.xaxis.set_visible(False)     # Do not draw axis tick marks
                 ax.yaxis.set_visible(False)     # Do not draw axis tick marks
                 ax.set_title(i, fontdict={"size": 10, "color":"#FFFFFF"})
