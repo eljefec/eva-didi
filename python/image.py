@@ -13,11 +13,10 @@ class ImageMsg:
         img = cv2.cvtColor(img, cv2.COLOR_BAYER_GR2BGR)
         self.bgr = img
 
-def save_np_image(nparr, relative):
+def save_np_image(nparr, fullpath):
     from PIL import Image
     im = Image.fromarray(nparr)
-    full_path = os.path.join('/data/output/', relative)
-    im.save(full_path)
+    im.save(fullpath)
 
 def read_images(bag_file):
     image_msgs = []
@@ -42,7 +41,7 @@ def save_images(bag_file, msg_count = None):
 
     count = 0
     for msg in image_msgs:
-        save_np_image(msg.bgr, 'image_raw/' + str(msg.header.seq) + '.png')
+        save_np_image(msg.bgr, os.path.join(output_dir, 'image_raw/' + str(msg.header.seq) + '.png'))
         count += 1
         if count == msg_count:
             return
