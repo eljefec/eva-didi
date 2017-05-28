@@ -1,10 +1,21 @@
+import image
+import lidar
+import numpy as np
+import sensor_msgs.point_cloud2 as pc2
 import trainmsg
 
 class TrainData:
-    def __init__(self, image, lidar_panorama, lidar_slices):
+    def __init__(self, pose, image, lidar_panorama, lidar_slices):
+        self.pose = pose
         self.image = image
         self.lidar_panorama = lidar_panorama
         self.lidar_slices = lidar_slices
+
+    def __str__(self):
+        return '{0}, image.shape: {1}, lidar_panorama.shape: {2}, lidar_slices.shape: {3}'.format(count,
+                td.image.shape,
+                td.lidar_panorama.shape if td.lidar_panorama is not None else 'None',
+                td.lidar_slices.shape if td.lidar_slices is not None else 'None')
 
 class TrainDataStream:
     def __init__(self):
@@ -17,9 +28,26 @@ class TrainDataStream:
         return self.msgstream.empty()
 
     # Precondition: empty() returns False
-    def get_next_msg(self):
-        msg = self.msgstream.get_next_msg()
-        lidar_panorama = lidar.lidar_to_panorama(msg.lidar)
-        lidar_slice = lidar.lidar_to_slice(msg.lidar)
+    def next(self):
+        msg = self.msgstream.next()
+        if msg.lidar is None:
+            lidar_panorama = None
+            lidar_slices = None
+        else:
+            points = pc2.read_points(msg.lidar)
+            points = np.array(list(points))
+            lidar_panorama = lidar.lidar_to_panorama(points)
+            lidar_slices = lidar.lidar_to_slices(points)
 
-        return TrainData(msg.pose, msg.image, lidar_panorama, lidar_slices)
+        imagemsg = image.ImageMsg(msg.image)
+
+        return TrainData(msg.pose, imagemsg.bgr, lidar_panorama, lidar_slices)
+
+if __name__ == '__main__':
+    datastream = TrainDataStream()
+    datastream.start_read('/data/Didi-Release-2/Data/1/2.bag', '/data/output/test/2/tracklet_labels.xml')
+    count = 0
+    while not datastream.empty():
+        td = datastream.next()
+        count += 1
+        print(td)
