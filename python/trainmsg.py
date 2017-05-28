@@ -44,7 +44,7 @@ class TrainMsgStream:
         return self.frame >= self.tracklet.num_frames or self.msg_queue.empty()
 
     # Precondition: empty() returns False
-    def get_next_msg(self):
+    def next(self):
         # track: size, trans, rots
         track = np.zeros(9, dtype=float)
         # size
@@ -76,7 +76,7 @@ if __name__ == '__main__':
     msgstream.start_read('/data/Didi-Release-2/Data/1/2.bag', '/data/output/test/2/tracklet_labels.xml')
     samples = []
     while not msgstream.empty():
-        sample = msgstream.get_next_msg()
+        sample = msgstream.next()
         samples.append(sample)
         print('track: {0}'.format(sample.pose))
         if sample.image is not None:
