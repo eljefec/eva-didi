@@ -1,4 +1,4 @@
-name: didi
+name: didi2
 channels:
     - https://conda.anaconda.org/menpo
     - conda-forge
@@ -22,8 +22,8 @@ dependencies:
     - pyqt=4.11.4
     - pip:
         - moviepy
-        - https://storage.googleapis.com/tensorflow/linux/gpu/tensorflow_gpu-0.12.1-cp27-none-linux_x86_64.whl
-        - keras==1.2.1
+        - https://storage.googleapis.com/tensorflow/linux/gpu/tensorflow_gpu-1.0.0-cp27-none-linux_x86_64.whl
+        - keras==2.0.4
         - rospkg
         - catkin-pkg
         - monotonic
