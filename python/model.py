@@ -75,19 +75,24 @@ def train_model():
     pool = AveragePooling2D()(pool)
     pool = AveragePooling2D()(pool)
     conv = Conv2D(32, kernel_size=3, strides=(2,2))(pool)
+    conv = Conv2D(32, kernel_size=3, strides=(2,2))(conv)
     image_out = Flatten()(conv)
     # image_out = Dense(32, activation='relu')(conv)
 
     input_lidar_panorama = Input(shape = PANORAMA_SHAPE,
                                  dtype = 'float32',
                                  name = INPUT_LIDAR_PANORAMA)
-    conv = Conv2D(32, kernel_size=3, strides=(2,2))(input_lidar_panorama)
+    pool = AveragePooling2D()(input_lidar_panorama)
+    conv = Conv2D(32, kernel_size=3, strides=(2,2))(pool)
+    conv = Conv2D(32, kernel_size=3, strides=(2,2))(conv)
     panorama_out = Flatten()(conv)
 
     input_lidar_slices = Input(shape = SLICES_SHAPE,
                                dtype = 'float32',
                                name = INPUT_LIDAR_SLICES)
-    conv = Conv2D(32, kernel_size=3, strides=(2,2))(input_lidar_slices)
+    pool = AveragePooling2D()(input_lidar_slices)
+    conv = Conv2D(32, kernel_size=3, strides=(2,2))(pool)
+    conv = Conv2D(32, kernel_size=3, strides=(2,2))(conv)
     slices_out = Flatten()(conv)
 
     x = keras.layers.concatenate([image_out, panorama_out, slices_out])
@@ -107,14 +112,15 @@ def train_model():
 
     model.compile(loss='mean_squared_error', optimizer='adam')
     print('model compiled.')
-    print(model)
+    # model.summary()
 
+    batch_size = 10
     generator = TrainDataGenerator()
-    hist = model.fit_generator(generator.generate(10,
+    hist = model.fit_generator(generator.generate(batch_size,
                                                   '/data/Didi-Release-2/Data/1/2.bag',
                                                   '/data/output/test/2/tracklet_labels.xml'),
-                               steps_per_epoch=1584,
-                               epochs=10)
+                               steps_per_epoch = (1584 / batch_size),
+                               epochs = 10)
     print(hist)
 
 if __name__ == '__main__':
