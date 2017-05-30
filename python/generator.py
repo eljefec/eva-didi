@@ -21,13 +21,20 @@ class DatumChecker:
                 print('Warning: Datastream returned many null messages in a row.')
 
 class TrainDataGenerator:
-    def __init__(self, bag_dir, tracklet_dir):
+    def __init__(self, bag_dir, tracklet_dir, validation_split = 0.2):
         self.datastream = multibag.MultiBagStream(bag_dir, tracklet_dir)
+        self.validation_split = 0.2
+        self.validation_period = 1 / validation_split
 
-    def get_count(self):
-        return self.datastream.frame_count
+    def get_train_count(self):
+        return int(self.datastream.frame_count * (1 - self.validation_split))
 
-    def generate(self, batch_size):
+    def get_validation_count(self):
+        return int(self.datastream.frame_count * self.validation_split)
+
+    def generate(self, batch_size, is_validation):
+        datum_count = 0
+
         images = []
         panoramas = []
         slices_list = []
@@ -54,10 +61,13 @@ class TrainDataGenerator:
             #    print("Panorama shape {0} doesn't match required shape {1}.".format(panorama.shape, PANORAMA_SHAPE))
             #    continue
 
-            images.append(datum.image)
-            panoramas.append(panorama)
-            slices_list.append(slices)
-            poses.append(datum.pose)
+            if (datum_count % self.validation_period == 0 and is_validation):
+                images.append(datum.image)
+                panoramas.append(panorama)
+                slices_list.append(slices)
+                poses.append(datum.pose)
+
+            datum_count += 1
 
             if batch_size == len(images):
                 image_batch = np.stack(images)
