@@ -9,15 +9,10 @@ import time
 # Precondition: roscore and velodyne node are running.
 class SensorMsgQueue:
     def __init__(self, maxsize, hertz):
+        self.maxsize = maxsize
         self.sleep_secs = 1 / hertz
-        self.image_queue = Queue.Queue(maxsize)
-        self.lidar_queue = Queue.Queue()
 
-        self.next_image = None
-        self.next_lidar = None
-
-        self.image_thread = None
-        self.lidar_thread = None
+        self.reset(check = False)
 
         self.lidar_interval = interval.IntervalTracker(5)
         self.lidar_processor = PointCloudProcessor(hertz)
@@ -30,6 +25,25 @@ class SensorMsgQueue:
                  and not self.lidar_thread.is_alive()
                  and self.image_queue.empty()
                  and self.lidar_queue.empty()))
+
+    def can_reset(self):
+        return ((self.image_thread is None
+                 and self.lidar_thread is None)
+             or (not self.image_thread.is_alive()
+                 and not self.lidar_thread.is_alive()))
+
+    def reset(self, check = True):
+        if check and not self.can_reset():
+            raise RuntimeError('Cannot reset because threads are still alive.')
+
+        self.image_queue = Queue.Queue(self.maxsize)
+        self.lidar_queue = Queue.Queue()
+
+        self.next_image = None
+        self.next_lidar = None
+
+        self.image_thread = None
+        self.lidar_thread = None
 
     # Returns messages in sequence.
     # None does not mean queue is empty. Call empty().
@@ -72,8 +86,7 @@ class SensorMsgQueue:
     # Fork threads to read from bag and fill queues.
     # Returns error if bag read is in progress.
     def start_read(self, bag_file, warmup_secs = 5):
-        if not self.empty():
-            raise RuntimeError('Cannot start read because read is in progress.')
+        self.reset()
 
         self.image_thread = Thread(target=self.read_images, args=(bag_file,))
         self.image_thread.start()
