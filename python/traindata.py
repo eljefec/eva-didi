@@ -47,10 +47,12 @@ class TrainDataStream:
         return TrainData(msg.pose, imagemsg.bgr, lidar_panorama, lidar_slices)
 
 if __name__ == '__main__':
-    datastream = TrainDataStream()
-    datastream.start_read('/data/Didi-Release-2/Data/1/2.bag', '/data/output/test/2/tracklet_labels.xml')
     count = 0
-    while not datastream.empty():
-        td = datastream.next()
-        count += 1
-        print(td)
+    datastream = TrainDataStream()
+    for i in range(2):
+        datastream.start_read('/data/Didi-Release-2/Data/1/2.bag', '/data/output/test/2/tracklet_labels.xml')
+        while not datastream.empty():
+            td = datastream.next()
+            count += 1
+            print(td)
+    print('count: {0}'.format(count))
