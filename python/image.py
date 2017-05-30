@@ -30,6 +30,8 @@ def read_images(bag_file):
 
         image_msgs.append(ImageMsg(msg))
 
+    bag.close()
+
     return image_msgs
 
 def save_images(bag_file, msg_count = None):

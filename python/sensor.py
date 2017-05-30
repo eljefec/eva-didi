@@ -110,6 +110,8 @@ class SensorMsgQueue:
             self.image_queue.put(msg)
             time.sleep(self.sleep_secs)
 
+        bag.close()
+
     def lidar_queue_is_full(self):
         return self.lidar_queue.full()
 
