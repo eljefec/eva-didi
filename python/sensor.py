@@ -72,6 +72,9 @@ class SensorMsgQueue:
     # Fork threads to read from bag and fill queues.
     # Returns error if bag read is in progress.
     def start_read(self, bag_file, warmup_secs = 5):
+        if not self.empty():
+            raise RuntimeError('Cannot start read because read is in progress.')
+
         self.image_thread = Thread(target=self.read_images, args=(bag_file,))
         self.image_thread.start()
 
@@ -110,21 +113,22 @@ class SensorMsgQueue:
 
 if __name__ == '__main__':
     msg_queue = SensorMsgQueue(maxsize = 10, hertz = 10)
-    msg_queue.start_read('/data/Didi-Release-2/Data/1/2.bag', 5)
 
     msg_counts = dict()
 
-    while not msg_queue.empty():
-        msg = msg_queue.next()
-        if msg is not None:
-            print('DEBUG: Got msg. {0} {1} {2}'.format(msg.header.stamp, msg.header.seq, msg.header.frame_id))
-            key = msg.header.frame_id
-            if key not in msg_counts:
-                msg_counts[key] = 1
-            else:
-                msg_counts[key] += 1
-        # interval = msg_queue.lidar_interval.estimate_interval_secs()
-        # if interval is not None:
-        #    print('est: {0:.2f}'.format(interval))
+    for i in range(2):
+        msg_queue.start_read('/data/Didi-Release-2/Data/1/2.bag', 5)
+        while not msg_queue.empty():
+            msg = msg_queue.next()
+            if msg is not None:
+                print('DEBUG: Got msg. {0} {1} {2}'.format(msg.header.stamp, msg.header.seq, msg.header.frame_id))
+                key = msg.header.frame_id
+                if key not in msg_counts:
+                    msg_counts[key] = 1
+                else:
+                    msg_counts[key] += 1
+            # interval = msg_queue.lidar_interval.estimate_interval_secs()
+            # if interval is not None:
+            #    print('est: {0:.2f}'.format(interval))
 
     print(msg_counts)
