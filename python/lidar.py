@@ -165,6 +165,8 @@ class PointCloudProcessor:
 
         # print('published_count: {0}'.format(published_count))
 
+        bag.close()
+
 import threading
 class MessageCounter:
     def __init__(self):
@@ -233,11 +235,12 @@ if __name__ == '__main__':
     bag_name = '2.bag'
     bag_file = os.path.join(data_dir, bag_name)
 
-    # counter = MessageCounter()
+    counter = MessageCounter()
     # pickler = MessagePickler()
     converter = PointCloudConverter('/data/output', 1)
     processor = PointCloudProcessor(hertz = 40)
-    processor.add_subscriber(converter.on_msg)
+    processor.add_subscriber(counter.on_msg)
+    # processor.add_subscriber(converter.on_msg)
     # processor.add_subscriber(pickler.on_msg)
 
     # Read rosbag.
