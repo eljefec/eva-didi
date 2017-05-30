@@ -67,12 +67,15 @@ class TrainMsgStream:
         self.frame += 1
 
         msg = None
-        while msg is None or msg.header.frame_id != 'camera':
+        while msg is None or msg.header is None or msg.header.frame_id != 'camera':
+        # while msg is None or msg.header.frame_id != 'camera':
             msg = self.msg_queue.next()
-            if msg.header.frame_id == 'camera':
-                self.prev_image = msg
-            elif msg.header.frame_id == 'velodyne':
-                self.prev_lidar = msg
+            if (msg is not None
+                    and msg.header is not None):
+                if msg.header.frame_id == 'camera':
+                    self.prev_image = msg
+                elif msg.header.frame_id == 'velodyne':
+                    self.prev_lidar = msg
 
         sample = TrainMsg(track, self.prev_image, self.prev_lidar)
 
@@ -84,7 +87,7 @@ if __name__ == '__main__':
     samples = []
     msgstream = TrainMsgStream()
     for i in range(2):
-        msgstream.start_read('/data/Didi-Release-2/Data/1/2.bag', '/data/output/test/2/tracklet_labels.xml')
+        msgstream.start_read('/data/Didi-Release-2/Data/1/3.bag', '/data/output/tracklet/1/3/tracklet_labels.xml')
         while not msgstream.empty():
             sample = msgstream.next()
             samples.append(sample)
