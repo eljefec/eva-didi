@@ -154,7 +154,7 @@ class PointCloudProcessor:
         else:
             msg_count = min(msg_count, n_lidar)
 
-        print('msg_count: ', msg_count)
+        # print('msg_count: ', msg_count)
 
         published_count = 0
         for i in range(msg_count):
