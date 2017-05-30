@@ -71,6 +71,7 @@ class MultiBagStream:
         if self.traindata.empty():
             self.bag_index = (self.bag_index + 1) % len(self.bag_tracklets)
             bag_tracklet = self.bag_tracklets[self.bag_index]
+            print('Opening next bag: ', bag_tracklet.bag)
             self.traindata.start_read(bag_tracklet.bag, bag_tracklet.tracklet)
 
         return self.traindata.next()
