@@ -76,14 +76,6 @@ class MultiBagStream:
         return self.traindata.next()
 
 if __name__ == '__main__':
-    bags = find_bags('/data/Didi-Release-2/Data/', '*.bag')
-    print(bags)
-    for b in bags:
-        print('basename: ', os.path.basename(b))
-        print('dirname: ', os.path.dirname(b))
-        print('split: ', os.path.split(b))
-        print('splitext: ', os.path.splitext(b))
-
     bag_tracklets = find_bag_tracklets('/data/Didi-Release-2/Data/', '*.bag', '/data/output/tracklet')
     for bt in bag_tracklets:
         print(bt)
