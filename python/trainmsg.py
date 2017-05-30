@@ -26,6 +26,9 @@ class OrderChecker:
 class TrainMsgStream:
     def __init__(self):
         self.msg_queue = sensor.SensorMsgQueue(maxsize = 10, hertz = 10)
+        self.reset()
+
+    def reset(self):
         self.prev_image = None
         self.prev_lidar = None
         self.tracklet = None
@@ -33,6 +36,10 @@ class TrainMsgStream:
         self.order_checker = OrderChecker()
 
     def start_read(self, bag_file, tracklet_file):
+        if not self.empty():
+            raise RuntimeError('Cannot start read because read is in progress.')
+
+        self.reset()
         tracklets = parse_tracklet.parse_xml(tracklet_file)
         assert(1 == len(tracklets))
 
@@ -41,7 +48,9 @@ class TrainMsgStream:
         self.msg_queue.start_read(bag_file)
 
     def empty(self):
-        return self.frame >= self.tracklet.num_frames or self.msg_queue.empty()
+        return (self.tracklet is None
+                or self.frame >= self.tracklet.num_frames
+                or self.msg_queue.empty())
 
     # Precondition: empty() returns False
     def next(self):
@@ -72,15 +81,16 @@ class TrainMsgStream:
         return sample
 
 if __name__ == '__main__':
-    msgstream = TrainMsgStream()
-    msgstream.start_read('/data/Didi-Release-2/Data/1/2.bag', '/data/output/test/2/tracklet_labels.xml')
     samples = []
-    while not msgstream.empty():
-        sample = msgstream.next()
-        samples.append(sample)
-        print('track: {0}'.format(sample.pose))
-        if sample.image is not None:
-            print('image: {0}'.format(sample.image.header.stamp))
-        if sample.lidar is not None:
-            print('lidar: {0}'.format(sample.lidar.header.stamp))
-        print('len(samples): {0}'.format(len(samples)))
+    msgstream = TrainMsgStream()
+    for i in range(2):
+        msgstream.start_read('/data/Didi-Release-2/Data/1/2.bag', '/data/output/test/2/tracklet_labels.xml')
+        while not msgstream.empty():
+            sample = msgstream.next()
+            samples.append(sample)
+            print('track: {0}'.format(sample.pose))
+            if sample.image is not None:
+                print('image: {0}'.format(sample.image.header.stamp))
+            if sample.lidar is not None:
+                print('lidar: {0}'.format(sample.lidar.header.stamp))
+            print('len(samples): {0}'.format(len(samples)))
