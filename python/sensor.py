@@ -92,8 +92,6 @@ class SensorMsgQueue:
         messages = bag.read_messages(topics=["/image_raw"])
         num_images = bag.get_message_count(topic_filters=["/image_raw"])
 
-        print('Reading images...')
-
         for i in range(num_images):
             topic, msg, t  = messages.next()
             self.image_queue.put(msg)
@@ -106,8 +104,6 @@ class SensorMsgQueue:
         self.lidar_queue.put(msg)
 
     def read_lidar(self, bag_file):
-        print('Reading lidar...')
-
         self.lidar_processor.read_bag(bag_file)
         # self.lidar_processor.spin()
 

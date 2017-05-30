@@ -163,7 +163,7 @@ class PointCloudProcessor:
             published_count += 1
             self.rate.sleep()
 
-        print('published_count: {0}'.format(published_count))
+        # print('published_count: {0}'.format(published_count))
 
 import threading
 class MessageCounter:
