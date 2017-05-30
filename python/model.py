@@ -1,12 +1,13 @@
 from generator import *
 from keras.callbacks import EarlyStopping, ModelCheckpoint
 import keras.layers
-from keras.layers.core import Flatten
+from keras.layers.core import Flatten, Dropout
 from keras.layers import Conv2D, Input, Dense
 from keras.layers.pooling import AveragePooling2D
 from keras.models import Model
 import multibag
 import numpy as np
+import pickle
 import traindata
 
 def pool_and_conv(x):
@@ -14,7 +15,7 @@ def pool_and_conv(x):
     x = Conv2D(32, kernel_size=3, strides=(2,2))(x)
     return x
 
-def build_model():
+def build_model(dropout_rate = 0.2):
     input_image = Input(shape = IMAGE_SHAPE,
                         dtype = 'float32',
                         name = INPUT_IMAGE)
@@ -22,6 +23,7 @@ def build_model():
     x = AveragePooling2D()(x)
     x = AveragePooling2D()(x)
     x = AveragePooling2D()(x)
+    x = Dropout(dropout_rate)(x)
     x = Conv2D(32, kernel_size=3, strides=(2,2))(x)
     x = Conv2D(32, kernel_size=3, strides=(2,2))(x)
     image_out = Flatten()(x)
@@ -32,6 +34,7 @@ def build_model():
                                  name = INPUT_LIDAR_PANORAMA)
     x = pool_and_conv(input_lidar_panorama)
     x = pool_and_conv(x)
+    x = Dropout(dropout_rate)(x)
     panorama_out = Flatten()(x)
 
     input_lidar_slices = Input(shape = SLICES_SHAPE,
@@ -39,6 +42,7 @@ def build_model():
                                name = INPUT_LIDAR_SLICES)
     x = pool_and_conv(input_lidar_slices)
     x = pool_and_conv(x)
+    x = Dropout(dropout_rate)(x)
     slices_out = Flatten()(x)
 
     x = keras.layers.concatenate([image_out, panorama_out, slices_out])
@@ -71,6 +75,7 @@ def get_validation_data(split):
 
 MODEL_DIR = 'models'
 CHECKPOINT_DIR = 'checkpoints'
+HISTORY_DIR = 'history'
 
 def train_model(model):
     batch_size = 64
@@ -91,17 +96,22 @@ def train_model(model):
     ]
 
     hist = model.fit_generator(generator.generate(batch_size),
-                               # steps_per_epoch = (generator.get_count() / batch_size),
-                               steps_per_epoch = (1000 / batch_size),
-                               epochs = 2,
+                               steps_per_epoch = (generator.count() / batch_size),
+                               epochs = 100,
+                               # Values for quick testing:
+                               # steps_per_epoch = (128 / batch_size),
+                               # epochs = 2,
                                validation_data = validation_data,
                                callbacks = callbacks)
     model.save(get_model_filename(MODEL_DIR))
-    print(hist)
+    # print(hist)
+
+    with open(get_model_filename(HISTORY_DIR, '', 'p'), 'wb') as f:
+        pickle.dump(hist.history, f)
 
 import stopwatch
-def get_model_filename(directory, suffix = ''):
-    return '{}/model_{}{}.h5'.format(directory, stopwatch.format_now(), suffix)
+def get_model_filename(directory, suffix = '', ext = 'h5'):
+    return '{}/model_{}{}.{}'.format(directory, stopwatch.format_now(), suffix, ext)
 
 def make_dir(directory):
     import os
@@ -111,6 +121,7 @@ def make_dir(directory):
 if __name__ == '__main__':
     make_dir(MODEL_DIR)
     make_dir(CHECKPOINT_DIR)
+    make_dir(HISTORY_DIR)
 
     model = build_model()
     model.summary()
