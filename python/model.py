@@ -7,7 +7,7 @@ from keras.models import Model
 import numpy as np
 import traindata
 
-def train_model():
+def build_model():
     input_image = Input(shape = IMAGE_SHAPE,
                         dtype = 'float32',
                         name = INPUT_IMAGE)
@@ -52,17 +52,36 @@ def train_model():
     tf.python.control_flow_ops = tf
 
     model.compile(loss='mean_squared_error', optimizer='adam')
-    print('model compiled.')
-    # model.summary()
 
+    return model
+
+MODEL_DIR = 'models'
+CHECKPOINT_DIR = 'checkpoints'
+
+def train_model(model):
     batch_size = 64
-    generator = TrainDataGenerator()
-    hist = model.fit_generator(generator.generate(batch_size,
-                                                  '/data/Didi-Release-2/Data/1/2.bag',
-                                                  '/data/output/test/2/tracklet_labels.xml'),
-                               steps_per_epoch = (1584 / batch_size),
+    generator = TrainDataGenerator('/data/Didi-Release-2/Data/', '/data/output/tracklet/')
+    hist = model.fit_generator(generator.generate(batch_size),
+                               # steps_per_epoch = (generator.get_count() / batch_size),
+                               steps_per_epoch = (1000 / batch_size),
                                epochs = 1)
+    model.save(get_model_filename(MODEL_DIR))
     print(hist)
 
+import stopwatch
+def get_model_filename(directory, suffix = ''):
+    return '{}/model_{}{}.h5'.format(directory, stopwatch.format_now(), suffix)
+
+def make_dir(directory):
+    import os
+    if not os.path.exists(directory):
+        os.makedirs(directory)
+
 if __name__ == '__main__':
-    train_model()
+    make_dir(MODEL_DIR)
+    make_dir(CHECKPOINT_DIR)
+
+    model = build_model()
+    model.summary()
+    train_model(model)
+    # TODO: Save checkpoints.
