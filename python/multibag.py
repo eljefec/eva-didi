@@ -2,11 +2,9 @@ from __future__ import division
 
 import fnmatch
 import os
+import rosbag
 import sys
 import traindata
-
-sys.path.append('/home/eljefec/repo/didi-competition/tracklets/python')
-import bag_utils
 
 def find_bags(directory, pattern):
     matched_files = []
@@ -56,18 +54,19 @@ def find_bag_tracklets(directory, tracklet_dir):
     return bag_tracklets
 
 def count_image_messages(bag_tracklets):
-    bags = []
+    total = 0
     for bt in bag_tracklets:
-        bags.append(bt.bag)
-    bagset = bag_utils.BagSet(name = 'ForCounting', bagfiles = bags, filter_topics = [])
-    return bagset.get_message_count(['/image_raw'])
+        bag = rosbag.Bag(bt.bag, 'r')
+        total += bag.get_message_count(topic_filters=['/image_raw'])
+        bag.close()
+    return total
 
 def count_image_messages_per_bag(bag_tracklets):
     counts = []
     for bt in bag_tracklets:
-        bags = [bt.bag]
-        bagset = bag_utils.BagSet(name = 'ForCounting', bagfiles = bags, filter_topics = [])
-        counts.append(bagset.get_message_count(['/image_raw']))
+        bag = rosbag.Bag(bt.bag, 'r')
+        counts.append(bag.get_message_count(topic_filters=['/image_raw']))
+        bag.close()
     return counts
 
 class TrainValidationSplit:
@@ -78,7 +77,7 @@ class TrainValidationSplit:
         self.validation_count = validation_count
 
     def __repr__(self):
-        return 'train: {} count: {}, validation: {} count: {}'.format(self.train_bags, self.train_count, self.validation_bags, self.validation_count)
+        return 'train: {} count: {}\nvalidation: {} count: {}'.format(self.train_bags, self.train_count, self.validation_bags, self.validation_count)
 
 def train_validation_split(bag_tracklets, validation_split):
     assert(validation_split >= 0 and validation_split <= 1)
@@ -124,10 +123,15 @@ if __name__ == '__main__':
     split = train_validation_split(bag_tracklets, 0.05)
     print('split: ', split)
 
-    exit()
+    split = train_validation_split(bag_tracklets, 0.05)
+    print('split2: ', split)
 
-    multibag = MultiBagStream('/data/Didi-Release-2/Data/', '/data/output/tracklet')
-    print(multibag.frame_count)
+    multibag = MultiBagStream(split.train_bags)
+    print('train:', multibag.count())
+
+    multibag = MultiBagStream(split.validation_bags)
+    print('validation:', multibag.count())
+
     for i in range(5):
         msg = multibag.next()
         print('got msg: ', msg)
