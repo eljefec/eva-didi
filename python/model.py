@@ -1,40 +1,45 @@
 from generator import *
+from keras.callbacks import EarlyStopping, ModelCheckpoint
 import keras.layers
 from keras.layers.core import Flatten
 from keras.layers import Conv2D, Input, Dense
 from keras.layers.pooling import AveragePooling2D
 from keras.models import Model
+import multibag
 import numpy as np
 import traindata
+
+def pool_and_conv(x):
+    x = AveragePooling2D()(x)
+    x = Conv2D(32, kernel_size=3, strides=(2,2))(x)
+    return x
 
 def build_model():
     input_image = Input(shape = IMAGE_SHAPE,
                         dtype = 'float32',
                         name = INPUT_IMAGE)
-    pool = AveragePooling2D()(input_image)
-    pool = AveragePooling2D()(pool)
-    pool = AveragePooling2D()(pool)
-    pool = AveragePooling2D()(pool)
-    conv = Conv2D(32, kernel_size=3, strides=(2,2))(pool)
-    conv = Conv2D(32, kernel_size=3, strides=(2,2))(conv)
-    image_out = Flatten()(conv)
+    x = AveragePooling2D()(input_image)
+    x = AveragePooling2D()(x)
+    x = AveragePooling2D()(x)
+    x = AveragePooling2D()(x)
+    x = Conv2D(32, kernel_size=3, strides=(2,2))(x)
+    x = Conv2D(32, kernel_size=3, strides=(2,2))(x)
+    image_out = Flatten()(x)
     # image_out = Dense(32, activation='relu')(conv)
 
     input_lidar_panorama = Input(shape = PANORAMA_SHAPE,
                                  dtype = 'float32',
                                  name = INPUT_LIDAR_PANORAMA)
-    pool = AveragePooling2D()(input_lidar_panorama)
-    conv = Conv2D(32, kernel_size=3, strides=(2,2))(pool)
-    conv = Conv2D(32, kernel_size=3, strides=(2,2))(conv)
-    panorama_out = Flatten()(conv)
+    x = pool_and_conv(input_lidar_panorama)
+    x = pool_and_conv(x)
+    panorama_out = Flatten()(x)
 
     input_lidar_slices = Input(shape = SLICES_SHAPE,
                                dtype = 'float32',
                                name = INPUT_LIDAR_SLICES)
-    pool = AveragePooling2D()(input_lidar_slices)
-    conv = Conv2D(32, kernel_size=3, strides=(2,2))(pool)
-    conv = Conv2D(32, kernel_size=3, strides=(2,2))(conv)
-    slices_out = Flatten()(conv)
+    x = pool_and_conv(input_lidar_slices)
+    x = pool_and_conv(x)
+    slices_out = Flatten()(x)
 
     x = keras.layers.concatenate([image_out, panorama_out, slices_out])
 
@@ -55,16 +60,42 @@ def build_model():
 
     return model
 
+# Read all validation data into memory.
+# This data pipeline cannot support multiple simultaneous data streams, because they would conflict at the Velodyne rosnode.
+def get_validation_data(split):
+    datastream = multibag.MultiBagStream(split.validation_bags)
+    generator = TrainDataGenerator(datastream)
+    gen = generator.generate(datastream.count())
+
+    return next(gen)
+
 MODEL_DIR = 'models'
 CHECKPOINT_DIR = 'checkpoints'
 
 def train_model(model):
     batch_size = 64
-    generator = TrainDataGenerator('/data/Didi-Release-2/Data/', '/data/output/tracklet/')
+    bag_tracklets = multibag.find_bag_tracklets('/data/Didi-Release-2/Data/', '/data/output/tracklet/')
+    split = multibag.train_validation_split(bag_tracklets, 0.05)
+    validation_data = get_validation_data(split)
+
+    datastream = multibag.MultiBagStream(split.train_bags)
+    generator = TrainDataGenerator(datastream)
+
+    checkpoint_path = get_model_filename(CHECKPOINT_DIR, suffix = 'e{epoch:02d}-vl{val_loss:.2f}')
+
+    # Set up callbacks. Stop early if the model does not improve. Save model checkpoints.
+    # Source: http://stackoverflow.com/questions/37293642/how-to-tell-keras-stop-training-based-on-loss-value
+    callbacks = [
+        EarlyStopping(monitor='val_loss', patience=2, verbose=0),
+        ModelCheckpoint(checkpoint_path, monitor='val_loss', save_best_only=False, verbose=0),
+    ]
+
     hist = model.fit_generator(generator.generate(batch_size),
                                # steps_per_epoch = (generator.get_count() / batch_size),
                                steps_per_epoch = (1000 / batch_size),
-                               epochs = 1)
+                               epochs = 2,
+                               validation_data = validation_data,
+                               callbacks = callbacks)
     model.save(get_model_filename(MODEL_DIR))
     print(hist)
 
@@ -84,4 +115,3 @@ if __name__ == '__main__':
     model = build_model()
     model.summary()
     train_model(model)
-    # TODO: Save checkpoints.

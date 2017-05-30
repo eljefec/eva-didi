@@ -1,4 +1,3 @@
-import multibag
 import numpy as np
 
 IMAGE_SHAPE = (1096,1368,3)
@@ -21,11 +20,11 @@ class DatumChecker:
                 print('Warning: Datastream returned many null messages in a row.')
 
 class TrainDataGenerator:
-    def __init__(self, bag_dir, tracklet_dir):
-        self.datastream = multibag.MultiBagStream(bag_dir, tracklet_dir)
+    def __init__(self, datastream):
+        self.datastream = datastream
 
     def get_count(self):
-        return self.datastream.frame_count
+        return self.datastream.count()
 
     def generate(self, batch_size):
         images = []

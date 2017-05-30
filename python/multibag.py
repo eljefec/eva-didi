@@ -1,3 +1,5 @@
+from __future__ import division
+
 import fnmatch
 import os
 import sys
@@ -40,10 +42,10 @@ class BagTracklet:
     def __repr__(self):
         return 'bag: {0}, tracklet: {1}'.format(self.bag, self.tracklet)
 
-def find_bag_tracklets(directory, pattern, tracklet_dir):
+def find_bag_tracklets(directory, tracklet_dir):
     bag_tracklets = []
 
-    bags = find_bags(directory, pattern)
+    bags = find_bags(directory, '*.bag')
     assert(len(bags) > 0)
 
     for bag in bags:
@@ -53,19 +55,57 @@ def find_bag_tracklets(directory, pattern, tracklet_dir):
 
     return bag_tracklets
 
-def count_image_messages(bag_dir):
-    count = 0
-    bagsets = bag_utils.find_bagsets(bag_dir)
-    for bs in bagsets:
-        count += bs.get_message_count(['/image_raw'])
-    return count
+def count_image_messages(bag_tracklets):
+    bags = []
+    for bt in bag_tracklets:
+        bags.append(bt.bag)
+    bagset = bag_utils.BagSet(name = 'ForCounting', bagfiles = bags, filter_topics = [])
+    return bagset.get_message_count(['/image_raw'])
+
+def count_image_messages_per_bag(bag_tracklets):
+    counts = []
+    for bt in bag_tracklets:
+        bags = [bt.bag]
+        bagset = bag_utils.BagSet(name = 'ForCounting', bagfiles = bags, filter_topics = [])
+        counts.append(bagset.get_message_count(['/image_raw']))
+    return counts
+
+class TrainValidationSplit:
+    def __init__(self, train_bags, train_count, validation_bags, validation_count):
+        self.train_bags = train_bags
+        self.train_count = train_count
+        self.validation_bags = validation_bags
+        self.validation_count = validation_count
+
+    def __repr__(self):
+        return 'train: {} count: {}, validation: {} count: {}'.format(self.train_bags, self.train_count, self.validation_bags, self.validation_count)
+
+def train_validation_split(bag_tracklets, validation_split):
+    assert(validation_split >= 0 and validation_split <= 1)
+
+    counts = count_image_messages_per_bag(bag_tracklets)
+    total = sum(counts)
+
+    partial_sum = 0
+    for i in range(len(bag_tracklets)):
+        partial_sum += counts[i]
+        validation_percent = partial_sum / total
+        if (validation_percent >= validation_split):
+            validation_bags = bag_tracklets[0:i+1]
+            train_bags = bag_tracklets[i+1:]
+            break
+
+    return TrainValidationSplit(train_bags, (total - partial_sum), validation_bags, partial_sum)
 
 class MultiBagStream:
-    def __init__(self, bag_dir, tracklet_dir):
-        self.bag_tracklets = find_bag_tracklets(bag_dir, '*.bag', tracklet_dir)
+    def __init__(self, bag_tracklets):
+        self.bag_tracklets = bag_tracklets
         self.traindata = traindata.TrainDataStream()
-        self.frame_count = count_image_messages(bag_dir)
+        self.frame_count = count_image_messages(bag_tracklets)
         self.bag_index = 0
+
+    def count(self):
+        return self.frame_count
 
     def next(self):
         if self.traindata.empty():
@@ -77,9 +117,14 @@ class MultiBagStream:
         return self.traindata.next()
 
 if __name__ == '__main__':
-    bag_tracklets = find_bag_tracklets('/data/Didi-Release-2/Data/', '*.bag', '/data/output/tracklet')
+    bag_tracklets = find_bag_tracklets('/data/Didi-Release-2/Data/', '/data/output/tracklet')
     for bt in bag_tracklets:
         print(bt)
+
+    split = train_validation_split(bag_tracklets, 0.05)
+    print('split: ', split)
+
+    exit()
 
     multibag = MultiBagStream('/data/Didi-Release-2/Data/', '/data/output/tracklet')
     print(multibag.frame_count)
