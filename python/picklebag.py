@@ -122,6 +122,16 @@ def split_into_pickles(bag_file, tracklet_file, frames_per_pickle):
     with open(header_file, 'wb') as f:
         pickle.dump(header, f)
 
+def pre_pickle(bag_tracklets, batch_size):
+    import picklebag
+    for bt in bag_tracklets:
+        header_file = get_pickle_filename(bt.bag, HEADER_ID)
+        if os.path.exists(header_file):
+            print('DEBUG: header found', header_file)
+        else:
+            print('DEBUG: header not found.', header_file, 'Dicing pickles.')
+            split_into_pickles(bt.bag, bt.tracklet, frames_per_pickle = batch_size)
+
 if __name__ == '__main__':
     print('Warning: This will write as much as 20G of data to disk.')
     count = 0

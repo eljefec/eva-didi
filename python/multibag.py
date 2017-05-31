@@ -2,6 +2,7 @@ from __future__ import division
 
 import fnmatch
 import os
+import picklebag
 import random
 import rosbag
 import sys
@@ -102,10 +103,15 @@ def shuffle(bag_tracklets, seed):
     random.shuffle(bag_tracklets)
 
 class MultiBagStream:
-    def __init__(self, bag_tracklets):
+    def __init__(self, bag_tracklets, use_pickle_adapter):
         self.bag_tracklets = bag_tracklets
-        self.traindata = traindata.TrainDataStream()
         self.frame_count = count_image_messages(bag_tracklets)
+
+        if use_pickle_adapter:
+            self.traindata = picklebag.PickleAdapter()
+        else:
+            self.traindata = traindata.TrainDataStream()
+
         self.bag_index = 0
 
     def count(self):
