@@ -8,6 +8,7 @@ from keras.models import Model
 import multibag
 import numpy as np
 import pickle
+import picklebag
 import traindata
 
 def pool_and_conv(x):
@@ -64,15 +65,6 @@ def build_model(dropout_rate = 0.2):
 
     return model
 
-# Read all validation data into memory.
-# This data pipeline cannot support multiple simultaneous data streams, because they would conflict at the Velodyne rosnode.
-def get_validation_data(split):
-    datastream = multibag.MultiBagStream(split.validation_bags)
-    generator = TrainDataGenerator(datastream)
-    gen = generator.generate(datastream.count())
-
-    return next(gen)
-
 MODEL_DIR = 'models'
 CHECKPOINT_DIR = 'checkpoints'
 HISTORY_DIR = 'history'
@@ -80,11 +72,22 @@ HISTORY_DIR = 'history'
 def train_model(model):
     batch_size = 64
     bag_tracklets = multibag.find_bag_tracklets('/data/Didi-Release-2/Data/', '/data/output/tracklet/')
-    split = multibag.train_validation_split(bag_tracklets, 0.05)
-    validation_data = get_validation_data(split)
 
-    datastream = multibag.MultiBagStream(split.train_bags)
-    generator = TrainDataGenerator(datastream)
+    # Good shuffle seeds: (7, 0.15)
+    shuffleseed = 7
+    multibag.shuffle(bag_tracklets, shuffleseed)
+    split = multibag.train_validation_split(bag_tracklets, 0.15)
+
+    # Either the training or validation data stream must be pre-pickled. Otherwise, the messages would cross between generators because both generators would pull messages through the velodyne node.
+    picklebag.pre_pickle(split.validation_bags, batch_size)
+
+    validation_stream = multibag.MultiBagStream(split.validation_bags, use_pickle_adapter = True)
+    validation_generator = TrainDataGenerator(validation_stream)
+
+    training_stream = multibag.MultiBagStream(split.train_bags, use_pickle_adapter = False)
+    training_generator = TrainDataGenerator(training_stream)
+
+    print('train: ', training_generator.get_count(), ', validation: ', validation_generator.get_count())
 
     checkpoint_path = get_model_filename(CHECKPOINT_DIR, suffix = 'e{epoch:02d}-vl{val_loss:.2f}')
 
@@ -95,13 +98,14 @@ def train_model(model):
         ModelCheckpoint(checkpoint_path, monitor='val_loss', save_best_only=False, verbose=0),
     ]
 
-    hist = model.fit_generator(generator.generate(batch_size),
-                               steps_per_epoch = (generator.count() / batch_size),
+    hist = model.fit_generator(training_generator.generate(batch_size),
+                               steps_per_epoch = (training_generator.get_count() / batch_size),
                                epochs = 100,
                                # Values for quick testing:
                                # steps_per_epoch = (128 / batch_size),
                                # epochs = 2,
-                               validation_data = validation_data,
+                               validation_data = validation_generator.generate(batch_size),
+                               validation_steps = (validation_generator.get_count() / batch_size),
                                callbacks = callbacks)
     model.save(get_model_filename(MODEL_DIR))
     # print(hist)
