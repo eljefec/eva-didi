@@ -17,8 +17,11 @@ class FramePickle:
         with open(self.pickle_filename, 'wb') as f:
             pickle.dump(frames, f)
 
+def get_pickle_folder(bag_file):
+    return bag_file + '_pickle/'
+
 def get_pickle_filename(bag_file, pickle_id):
-    return bag_file + '.' + str(pickle_id) + '.p'
+    return os.path.join(get_pickle_folder(bag_file), str(pickle_id) + '.p')
 
 HEADER_ID = 'header'
 FRAME_COUNT = 'frame_count'
@@ -37,7 +40,7 @@ class PickleAdapter:
             print('DEBUG: header found')
         else:
             print('DEBUG: header not found. Dicing pickles.')
-            split_into_pickles(bag_file, tracklet_file, header_file, self.frames_per_pickle)
+            split_into_pickles(bag_file, tracklet_file, self.frames_per_pickle)
 
         self.generator = self.generate(header_file)
         try:
@@ -80,7 +83,14 @@ class PickleAdapter:
                 except StopIteration:
                     empty = True
 
-def split_into_pickles(bag_file, tracklet_file, header_file, frames_per_pickle):
+def make_pickle_folder(bag_file):
+    folder = get_pickle_folder(bag_file)
+    if not os.path.exists(folder):
+        os.makedirs(folder)
+
+def split_into_pickles(bag_file, tracklet_file, frames_per_pickle):
+    make_pickle_folder(bag_file)
+
     frame_count = 0
     frames = []
     pickles = []
@@ -108,14 +118,16 @@ def split_into_pickles(bag_file, tracklet_file, header_file, frames_per_pickle):
     header = dict()
     header[FRAME_COUNT] = frame_count
     header[FRAME_FILENAMES] = frame_filenames
+    header_file = get_pickle_filename(bag_file, HEADER_ID)
     with open(header_file, 'wb') as f:
         pickle.dump(header, f)
 
 if __name__ == '__main__':
+    print('Warning: This will write as much as 20G of data to disk.')
     count = 0
     pickle_adapter = PickleAdapter()
     for i in range(2):
-        pickle_adapter.start_read('/data/Didi-Release-2/Data/1/2.bag', '/data/output/test/2/tracklet_labels.xml')
+        pickle_adapter.start_read('/data/Didi-Release-2/Data/1/14_f.bag', '/data/output/tracklet/1/14_f/tracklet_labels.xml')
         while not pickle_adapter.empty():
             td = pickle_adapter.next()
             count += 1
