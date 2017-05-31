@@ -1,8 +1,8 @@
+import framestream
 import image
 import lidar
 import numpy as np
 import sensor_msgs.point_cloud2 as pc2
-import trainmsg
 
 class TrainData:
     def __init__(self, pose, image, lidar_panorama, lidar_slices):
@@ -22,7 +22,7 @@ class TrainData:
 
 class TrainDataStream:
     def __init__(self):
-        self.msgstream = trainmsg.TrainMsgStream()
+        self.msgstream = framestream.FrameStream()
 
     def start_read(self, bag_file, tracklet_file):
         self.msgstream.start_read(bag_file, tracklet_file)
