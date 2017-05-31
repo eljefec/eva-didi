@@ -27,7 +27,7 @@ class OrderChecker:
 
                 self.prev_sample = sample
 
-class TrainMsgStream:
+class FrameStream:
     def __init__(self):
         self.msg_queue = sensor.SensorMsgQueue(maxsize = 10, hertz = 10)
         self.reset()
@@ -89,7 +89,7 @@ class TrainMsgStream:
 
 if __name__ == '__main__':
     samples = []
-    msgstream = TrainMsgStream()
+    msgstream = FrameStream()
     for i in range(2):
         msgstream.start_read('/data/Didi-Release-2/Data/1/3.bag', '/data/output/tracklet/1/3/tracklet_labels.xml')
         while not msgstream.empty():
