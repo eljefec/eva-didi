@@ -9,19 +9,23 @@ class TrainMsg:
         self.lidar = lidar
 
 class OrderChecker:
-    def __init__(self):
+    def __init__(self, enabled):
+        self.enabled = enabled
         self.prev_sample = None
 
     def check_sample(self, sample):
-        if self.prev_sample is not None:
-            assert(sample.lidar.stamp <= sample.image.stamp)
+        if self.enabled:
+            if self.prev_sample is None:
+                self.prev_sample = sample
+            else:
+                assert(sample.lidar.stamp <= sample.image.stamp)
 
-            assert(prev_sample.image.stamp <= sample.image.stamp)
-            assert(prev_sample.lidar.stamp <= sample.lidar.stamp)
-            assert(prev_sample.image.stamp <= sample.lidar.stamp)
-            assert(prev_sample.lidar.stamp <= sample.image.stamp)
+                assert(prev_sample.image.stamp <= sample.image.stamp)
+                assert(prev_sample.lidar.stamp <= sample.lidar.stamp)
+                assert(prev_sample.image.stamp <= sample.lidar.stamp)
+                assert(prev_sample.lidar.stamp <= sample.image.stamp)
 
-            self.prev_sample = sample
+                self.prev_sample = sample
 
 class TrainMsgStream:
     def __init__(self):
@@ -33,7 +37,7 @@ class TrainMsgStream:
         self.prev_lidar = None
         self.tracklet = None
         self.frame = 0
-        self.order_checker = OrderChecker()
+        self.order_checker = OrderChecker(enabled = False)
 
     def start_read(self, bag_file, tracklet_file):
         if not self.empty():
