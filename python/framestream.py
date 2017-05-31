@@ -39,34 +39,40 @@ class FrameStream:
         self.frame = 0
         self.order_checker = OrderChecker(enabled = False)
 
+    # tracklet_file is allowed to be None
     def start_read(self, bag_file, tracklet_file):
         if not self.empty():
             raise RuntimeError('Cannot start read because read is in progress.')
 
         self.reset()
-        tracklets = parse_tracklet.parse_xml(tracklet_file)
-        assert(1 == len(tracklets))
 
-        self.tracklet = tracklets[0]
-        assert(0 == self.tracklet.first_frame)
+        if tracklet_file is not None:
+            tracklets = parse_tracklet.parse_xml(tracklet_file)
+            assert(1 == len(tracklets))
+
+            self.tracklet = tracklets[0]
+            assert(0 == self.tracklet.first_frame)
+
         self.msg_queue.start_read(bag_file)
 
     def empty(self):
-        return (self.tracklet is None
-                or self.frame >= self.tracklet.num_frames
+        return ((self.tracklet is not None and self.frame >= self.tracklet.num_frames)
                 or self.msg_queue.empty())
 
     # Precondition: empty() returns False
     def next(self):
-        # track: size, trans, rots
-        track = np.zeros(9, dtype=float)
-        # size
-        for i in range(3):
-            track[i] = self.tracklet.size[i]
-        # trans
-        for i in range(3):
-            track[3 + i] = self.tracklet.trans[self.frame][i]
-        # Let rotations (rots) be zero.
+        if self.tracklet is None:
+            track = None
+        else:
+            # track: size, trans, rots
+            track = np.zeros(9, dtype=float)
+            # size
+            for i in range(3):
+                track[i] = self.tracklet.size[i]
+            # trans
+            for i in range(3):
+                track[3 + i] = self.tracklet.trans[self.frame][i]
+            # Let rotations (rots) be zero.
 
         self.frame += 1
 
