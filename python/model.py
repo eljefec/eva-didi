@@ -81,11 +81,15 @@ def train_model(model):
     # Either the training or validation data stream must be pre-pickled. Otherwise, the messages would cross between generators because both generators would pull messages through the velodyne node.
     picklebag.pre_pickle(split.validation_bags, batch_size)
 
-    validation_stream = multibag.MultiBagStream(split.validation_bags, use_pickle_adapter = True)
-    validation_generator = TrainDataGenerator(validation_stream)
+    validation_stream = multibag.MultiBagStream(split.validation_bags,
+                                                use_pickle_adapter = True)
+    validation_generator = TrainDataGenerator(validation_stream,
+                                              include_ground_truth = True)
 
-    training_stream = multibag.MultiBagStream(split.train_bags, use_pickle_adapter = False)
-    training_generator = TrainDataGenerator(training_stream)
+    training_stream = multibag.MultiBagStream(split.train_bags,
+                                              use_pickle_adapter = False)
+    training_generator = TrainDataGenerator(training_stream,
+                                            include_ground_truth = True)
 
     print('train: ', training_generator.get_count(), ', validation: ', validation_generator.get_count())
 

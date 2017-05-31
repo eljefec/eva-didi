@@ -34,6 +34,7 @@ class PickleAdapter:
         self.generator = None
         self.next_frame = None
 
+    # tracklet_file is allowed to be None
     def start_read(self, bag_file, tracklet_file):
         header_file = get_pickle_filename(bag_file, HEADER_ID)
         if os.path.exists(header_file):
@@ -42,12 +43,20 @@ class PickleAdapter:
             print('DEBUG: header not found. Dicing pickles.')
             split_into_pickles(bag_file, tracklet_file, self.frames_per_pickle)
 
-        self.generator = self.generate(header_file)
+        with open(header_file, 'rb') as f:
+            header = pickle.load(f)
+
+        self.frame_count = header[FRAME_COUNT]
+        self.generator = self.generate(header)
+
         try:
             self.next_frame = next(self.generator)
         except StopIteration:
             self.next_frame = None
             self.generator = None
+
+    def count(self):
+        return self.frame_count
 
     def empty(self):
         return self.next_frame is None
@@ -64,11 +73,8 @@ class PickleAdapter:
                 self.generator = None
             return current_frame
 
-    def generate(self, header_file):
-        with open(header_file, 'rb') as f:
-            header = pickle.load(f)
-            self.frame_count = header[FRAME_COUNT]
-            frame_filenames = header[FRAME_FILENAMES]
+    def generate(self, header):
+        frame_filenames = header[FRAME_FILENAMES]
         frame_pickles = []
         for frame_filename in frame_filenames:
             assert(os.path.exists(frame_filename))

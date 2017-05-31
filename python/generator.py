@@ -20,8 +20,9 @@ class DatumChecker:
                 print('Warning: Datastream returned many null messages in a row.')
 
 class TrainDataGenerator:
-    def __init__(self, datastream):
+    def __init__(self, datastream, include_ground_truth):
         self.datastream = datastream
+        self.include_ground_truth = include_ground_truth
 
     def get_count(self):
         return self.datastream.count()
@@ -30,7 +31,8 @@ class TrainDataGenerator:
         images = []
         panoramas = []
         slices_list = []
-        poses = []
+        if self.include_ground_truth:
+            poses = []
 
         while True:
             datum_checker = DatumChecker()
@@ -56,21 +58,29 @@ class TrainDataGenerator:
             images.append(datum.image)
             panoramas.append(panorama)
             slices_list.append(slices)
-            poses.append(datum.pose)
+            if self.include_ground_truth:
+                poses.append(datum.pose)
 
-            if batch_size == len(images):
+            if (batch_size == len(images)):
                 image_batch = np.stack(images)
                 panorama_batch = np.stack(panoramas)
                 slices_batch = np.stack(slices_list)
-                pose_batch = np.stack(poses)
+                if self.include_ground_truth:
+                    pose_batch = np.stack(poses)
 
                 images[:] = []
                 panoramas[:] = []
                 slices_list[:] = []
-                poses[:] = []
+                if self.include_ground_truth:
+                    poses[:] = []
 
-                yield ({INPUT_IMAGE: image_batch,
-                        INPUT_LIDAR_PANORAMA: panorama_batch,
-                        INPUT_LIDAR_SLICES: slices_batch},
-                       {OUTPUT_POSE: pose_batch}
-                      )
+                if self.include_ground_truth:
+                    yield ({INPUT_IMAGE: image_batch,
+                            INPUT_LIDAR_PANORAMA: panorama_batch,
+                            INPUT_LIDAR_SLICES: slices_batch},
+                           {OUTPUT_POSE: pose_batch}
+                          )
+                else:
+                    yield {INPUT_IMAGE: image_batch,
+                           INPUT_LIDAR_PANORAMA: panorama_batch,
+                           INPUT_LIDAR_SLICES: slices_batch}

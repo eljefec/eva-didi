@@ -24,6 +24,7 @@ class TrainDataStream:
     def __init__(self):
         self.msgstream = framestream.FrameStream()
 
+    # tracklet_file can be None
     def start_read(self, bag_file, tracklet_file):
         self.msgstream.start_read(bag_file, tracklet_file)
 
