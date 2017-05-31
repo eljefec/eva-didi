@@ -2,6 +2,7 @@ from __future__ import division
 
 import fnmatch
 import os
+import random
 import rosbag
 import sys
 import traindata
@@ -96,6 +97,10 @@ def train_validation_split(bag_tracklets, validation_split):
 
     return TrainValidationSplit(train_bags, (total - partial_sum), validation_bags, partial_sum)
 
+def shuffle(bag_tracklets, seed):
+    random.seed(seed)
+    random.shuffle(bag_tracklets)
+
 class MultiBagStream:
     def __init__(self, bag_tracklets):
         self.bag_tracklets = bag_tracklets
@@ -116,14 +121,21 @@ class MultiBagStream:
         return self.traindata.next()
 
 if __name__ == '__main__':
+    import copy
+
     bag_tracklets = find_bag_tracklets('/data/Didi-Release-2/Data/', '/data/output/tracklet')
     for bt in bag_tracklets:
         print(bt)
 
-    split = train_validation_split(bag_tracklets, 0.05)
-    print('split: ', split)
+    for seed in range(10):
+        copied = copy.copy(bag_tracklets)
+        shuffle(copied, seed)
+        split = train_validation_split(copied, 0.15)
+        print('seed: ', seed)
+        print('split: ', split)
 
-    split = train_validation_split(bag_tracklets, 0.05)
+    shuffle(bag_tracklets, 7)
+    split = train_validation_split(bag_tracklets, 0.15)
     print('split2: ', split)
 
     multibag = MultiBagStream(split.train_bags)
@@ -132,6 +144,6 @@ if __name__ == '__main__':
     multibag = MultiBagStream(split.validation_bags)
     print('validation:', multibag.count())
 
-    for i in range(5):
-        msg = multibag.next()
-        print('got msg: ', msg)
+    #for i in range(5):
+    #    msg = multibag.next()
+    #    print('got msg: ', msg)
