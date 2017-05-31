@@ -20,8 +20,12 @@ class DatumChecker:
                 print('Warning: Datastream returned many null messages in a row.')
 
 class TrainDataGenerator:
-    def __init__(self, datastream):
+    def __init__(self, datastream, include_ground_truth, unlimited):
         self.datastream = datastream
+        self.include_ground_truth = include_ground_truth
+        self.unlimited = unlimited
+        if not unlimited:
+            self.generated_count = 0
 
     def get_count(self):
         return self.datastream.count()
@@ -30,9 +34,10 @@ class TrainDataGenerator:
         images = []
         panoramas = []
         slices_list = []
-        poses = []
+        if self.include_ground_truth:
+            poses = []
 
-        while True:
+        while self.unlimited or self.generated_count != self.get_count():
             datum_checker = DatumChecker()
             datum = None
             while datum is None:
@@ -56,21 +61,36 @@ class TrainDataGenerator:
             images.append(datum.image)
             panoramas.append(panorama)
             slices_list.append(slices)
-            poses.append(datum.pose)
+            if self.include_ground_truth:
+                poses.append(datum.pose)
 
-            if batch_size == len(images):
+            if (batch_size == len(images)
+                or (not self.unlimited
+                    and self.generated_count + len(images) == self.get_count())):
+
+                print('gen', self.generated_count, 'len(images)', len(images), 'count', self.get_count())
+
+                self.generated_count += len(images)
+
                 image_batch = np.stack(images)
                 panorama_batch = np.stack(panoramas)
                 slices_batch = np.stack(slices_list)
-                pose_batch = np.stack(poses)
+                if self.include_ground_truth:
+                    pose_batch = np.stack(poses)
 
                 images[:] = []
                 panoramas[:] = []
                 slices_list[:] = []
-                poses[:] = []
+                if self.include_ground_truth:
+                    poses[:] = []
 
-                yield ({INPUT_IMAGE: image_batch,
-                        INPUT_LIDAR_PANORAMA: panorama_batch,
-                        INPUT_LIDAR_SLICES: slices_batch},
-                       {OUTPUT_POSE: pose_batch}
-                      )
+                if self.include_ground_truth:
+                    yield ({INPUT_IMAGE: image_batch,
+                            INPUT_LIDAR_PANORAMA: panorama_batch,
+                            INPUT_LIDAR_SLICES: slices_batch},
+                           {OUTPUT_POSE: pose_batch}
+                          )
+                else:
+                    yield {INPUT_IMAGE: image_batch,
+                           INPUT_LIDAR_PANORAMA: panorama_batch,
+                           INPUT_LIDAR_SLICES: slices_batch}
