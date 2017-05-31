@@ -12,13 +12,13 @@ class TrainData:
         self.lidar_slices = lidar_slices
 
     def __str__(self):
-        return '{0}, image.shape: {1}, image.type: {2}, lidar_panorama shape: {3} type: {4}, lidar_slices shape: {5} type: {6}'.format(count,
-                td.image.shape,
-                td.image.dtype,
-                td.lidar_panorama.shape if td.lidar_panorama is not None else 'None',
-                td.lidar_panorama.dtype if td.lidar_panorama is not None else 'None',
-                td.lidar_slices.shape if td.lidar_slices is not None else 'None',
-                td.lidar_slices.dtype if td.lidar_slices is not None else 'None')
+        return 'image.shape: {}, image.type: {}, lidar_panorama shape: {} type: {}, lidar_slices shape: {} type: {}'.format(
+                self.image.shape,
+                self.image.dtype,
+                self.lidar_panorama.shape if self.lidar_panorama is not None else 'None',
+                self.lidar_panorama.dtype if self.lidar_panorama is not None else 'None',
+                self.lidar_slices.shape if self.lidar_slices is not None else 'None',
+                self.lidar_slices.dtype if self.lidar_slices is not None else 'None')
 
 class TrainDataStream:
     def __init__(self):
