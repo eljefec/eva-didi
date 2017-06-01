@@ -27,3 +27,4 @@ dependencies:
         - rospkg
         - catkin-pkg
         - monotonic
+        - mem_top
