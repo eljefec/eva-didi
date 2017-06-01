@@ -2,7 +2,7 @@ import numpy as np
 
 IMAGE_SHAPE = (1096,1368,3)
 PANORAMA_SHAPE = (38,901,1)
-SLICES_SHAPE = (200,200,8)
+SLICES_SHAPE = (300,300,4,1)
 
 INPUT_IMAGE = 'input_image'
 INPUT_LIDAR_PANORAMA = 'input_lidar_panorama'
@@ -49,7 +49,7 @@ class TrainDataGenerator:
             if datum.lidar_slices is None:
                 slices = np.zeros(SLICES_SHAPE, dtype = np.uint8)
             else:
-                slices = datum.lidar_slices
+                slices = np.expand_dims(datum.lidar_slices, axis=-1)
 
             #if np.expand_dims(panorama, axis=-1).shape != PANORAMA_SHAPE:
             #    print("Panorama shape {0} doesn't match required shape {1}.".format(panorama.shape, PANORAMA_SHAPE))

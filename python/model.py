@@ -2,8 +2,8 @@ from generator import *
 from keras.callbacks import EarlyStopping, ModelCheckpoint
 import keras.layers
 from keras.layers.core import Flatten, Dropout
-from keras.layers import Conv2D, Input, Dense
-from keras.layers.pooling import AveragePooling2D
+from keras.layers import Conv2D, Conv3D, Input, Dense
+from keras.layers.pooling import MaxPooling2D, MaxPooling3D
 from keras.models import Model
 import multibag
 import numpy as np
@@ -12,7 +12,7 @@ import picklebag
 import traindata
 
 def pool_and_conv(x):
-    x = AveragePooling2D()(x)
+    x = MaxPooling2D()(x)
     x = Conv2D(32, kernel_size=3, strides=(2,2))(x)
     return x
 
@@ -20,13 +20,16 @@ def build_model(dropout_rate = 0.2):
     input_image = Input(shape = IMAGE_SHAPE,
                         dtype = 'float32',
                         name = INPUT_IMAGE)
-    x = AveragePooling2D()(input_image)
-    x = AveragePooling2D()(x)
-    x = AveragePooling2D()(x)
-    x = AveragePooling2D()(x)
+    x = MaxPooling2D()(input_image)
+    x = MaxPooling2D()(x)
+    x = MaxPooling2D()(x)
+    x = MaxPooling2D()(x)
     x = Dropout(dropout_rate)(x)
     x = Conv2D(32, kernel_size=3, strides=(2,2))(x)
+    x = MaxPooling2D()(x)
     x = Conv2D(32, kernel_size=3, strides=(2,2))(x)
+    x = MaxPooling2D()(x)
+    x = Dropout(dropout_rate)(x)
     image_out = Flatten()(x)
     # image_out = Dense(32, activation='relu')(conv)
 
@@ -41,8 +44,12 @@ def build_model(dropout_rate = 0.2):
     input_lidar_slices = Input(shape = SLICES_SHAPE,
                                dtype = 'float32',
                                name = INPUT_LIDAR_SLICES)
-    x = pool_and_conv(input_lidar_slices)
-    x = pool_and_conv(x)
+    x = MaxPooling3D(pool_size=(2,2,1))(input_lidar_slices)
+    x = Conv3D(32, kernel_size=3, strides=(2,2,1))(x)
+    x = MaxPooling3D(pool_size=(2,2,1))(x)
+    x = Dropout(dropout_rate)(x)
+    x = Conv3D(32, kernel_size=2, strides=(2,2,1))(x)
+    x = MaxPooling3D(pool_size=(2,2,1))(x)
     x = Dropout(dropout_rate)(x)
     slices_out = Flatten()(x)
 
@@ -70,7 +77,8 @@ CHECKPOINT_DIR = 'checkpoints'
 HISTORY_DIR = 'history'
 
 def train_model(model):
-    batch_size = 64
+    validation_batch_size = 32
+    train_batch_size = 96
     bag_tracklets = multibag.find_bag_tracklets('/data/Didi-Release-2/Data/', '/data/output/tracklet/')
 
     # Good shuffle seeds: (7, 0.15)
@@ -79,7 +87,7 @@ def train_model(model):
     split = multibag.train_validation_split(bag_tracklets, 0.15)
 
     # Either the training or validation data stream must be pre-pickled. Otherwise, the messages would cross between generators because both generators would pull messages through the velodyne node.
-    picklebag.pre_pickle(split.validation_bags, batch_size)
+    picklebag.pre_pickle(split.validation_bags, frames_per_pickle = 32)
 
     validation_stream = multibag.MultiBagStream(split.validation_bags,
                                                 use_pickle_adapter = True)
@@ -102,14 +110,14 @@ def train_model(model):
         ModelCheckpoint(checkpoint_path, monitor='val_loss', save_best_only=False, verbose=0),
     ]
 
-    hist = model.fit_generator(training_generator.generate(batch_size),
-                               steps_per_epoch = (training_generator.get_count() / batch_size),
+    hist = model.fit_generator(training_generator.generate(train_batch_size),
+                               steps_per_epoch = (training_generator.get_count() / train_batch_size),
                                epochs = 100,
                                # Values for quick testing:
                                # steps_per_epoch = (128 / batch_size),
                                # epochs = 2,
-                               validation_data = validation_generator.generate(batch_size),
-                               validation_steps = (validation_generator.get_count() / batch_size),
+                               validation_data = validation_generator.generate(validation_batch_size),
+                               validation_steps = (validation_generator.get_count() / validation_batch_size),
                                callbacks = callbacks)
     model.save(get_model_filename(MODEL_DIR))
     # print(hist)
