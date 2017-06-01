@@ -1,3 +1,4 @@
+import debug
 from generator import *
 from keras.callbacks import EarlyStopping, ModelCheckpoint
 import keras.layers
@@ -72,6 +73,7 @@ def build_model(dropout_rate = 0.2):
 
     return model
 
+LOG_DIR = 'logs'
 MODEL_DIR = 'models'
 CHECKPOINT_DIR = 'checkpoints'
 HISTORY_DIR = 'history'
@@ -135,6 +137,10 @@ def make_dir(directory):
         os.makedirs(directory)
 
 if __name__ == '__main__':
+    make_dir(LOG_DIR)
+
+    debugger = debug.Debugger(LOG_DIR + '/debugger.log', 20 * 60)
+
     make_dir(MODEL_DIR)
     make_dir(CHECKPOINT_DIR)
     make_dir(HISTORY_DIR)
@@ -142,3 +148,5 @@ if __name__ == '__main__':
     model = build_model()
     model.summary()
     train_model(model)
+
+    debugger.shutdown()
