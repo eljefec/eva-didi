@@ -12,7 +12,7 @@ from sensor_msgs.msg import PointCloud2
 
 import matplotlib
 # Work around error when using matplotlib through ssh: 'Invalid DISPLAY variable'.
-matplotlib.use('agg')
+# matplotlib.use('agg')
 import matplotlib.pyplot as plt
 
 def lidar_to_panorama(lidar):
@@ -26,10 +26,10 @@ def lidar_to_panorama(lidar):
 
 def lidar_to_slices(lidar):
     return tp.birds_eye_height_slices(lidar,
-                                        n_slices=8,
-                                        height_range=(-2.0, 0.27),
-                                        side_range=(-10, 10),
-                                        fwd_range=(0, 20),
+                                        n_slices=4,
+                                        height_range=(-1.25, -0.25),
+                                        side_range=(-15, 15),
+                                        fwd_range=(-10, 20),
                                         res=0.1)
 
 class PointCloudMsg:
