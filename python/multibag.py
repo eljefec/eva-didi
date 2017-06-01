@@ -1,6 +1,7 @@
 from __future__ import division
 
 import fnmatch
+import my_bag_utils as bu
 import os
 import picklebag
 import random
@@ -58,17 +59,13 @@ def find_bag_tracklets(directory, tracklet_dir):
 def count_image_messages(bag_tracklets):
     total = 0
     for bt in bag_tracklets:
-        bag = rosbag.Bag(bt.bag, 'r')
-        total += bag.get_message_count(topic_filters=['/image_raw'])
-        bag.close()
+        total += bu.count_image_msgs(bt.bag)
     return total
 
 def count_image_messages_per_bag(bag_tracklets):
     counts = []
     for bt in bag_tracklets:
-        bag = rosbag.Bag(bt.bag, 'r')
-        counts.append(bag.get_message_count(topic_filters=['/image_raw']))
-        bag.close()
+        counts.append(bu.count_image_msgs(bt.bag))
     return counts
 
 class TrainValidationSplit:
