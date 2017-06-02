@@ -43,7 +43,7 @@ def predict_tracklet(model_file, bag_file, metadata_path, output_file, pickle_fi
     # datastream = picklebag.PickleAdapter()
     # datastream.start_read(bag_file, tracklet_file = None)
     datastream = multibag.MultiBagStream([multibag.BagTracklet(bag_file, None)],
-                                         use_pickle_adapter = True)
+                                         use_pickle_adapter = False)
     input_generator = generator.TrainDataGenerator(datastream, include_ground_truth = False)
 
     batch_size = 64
@@ -76,9 +76,9 @@ def predict_tracklet(model_file, bag_file, metadata_path, output_file, pickle_fi
             pickle.dump(result_map, f)
 
 if __name__ == '__main__':
-    model_file = '/home/eljefec/repo/eva-didi/python/checkpoints/model_2017-05-30_21h37m52e03-vl100.52.h5'
+    model_file = '/home/eljefec/repo/eva-didi/python/checkpoints/model_2017-06-01_11h24m33e04-vl100.04.h5'
     predict_tracklet(model_file,
                      '/data/Didi-Release-2/Data/Round 1 Test/19_f2.bag',
                      '/data/Didi-Release-2/Data/Round 1 Test/metadata.csv',
-                     '/data/output/test/19_f2.predicted_tracklet.xml',
+                     '/data/output/test/19_f2.conv3d.predicted_tracklet.xml',
                      '/data/output/test/predictions.p')
