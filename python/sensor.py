@@ -36,7 +36,7 @@ class SensorMsgQueue:
         if check and not self.can_reset():
             raise RuntimeError('Cannot reset because threads are still alive.')
 
-        self.image_queue = Queue.Queue(self.maxsize)
+        self.image_queue = Queue.Queue()
         self.lidar_queue = Queue.Queue()
 
         self.next_image = None
@@ -85,7 +85,7 @@ class SensorMsgQueue:
 
     # Fork threads to read from bag and fill queues.
     # Returns error if bag read is in progress.
-    def start_read(self, bag_file, warmup_secs = 5):
+    def start_read(self, bag_file, warmup_timeout_secs = None):
         self.reset()
 
         self.image_thread = Thread(target=self.read_images, args=(bag_file,))
@@ -94,11 +94,18 @@ class SensorMsgQueue:
         self.lidar_thread = Thread(target=self.read_lidar, args=(bag_file,))
         self.lidar_thread.start()
 
-        sleep_secs = 0.1
-        for i in range(int(warmup_secs / sleep_secs)):
+        sleep_secs = 3
+        round_count = 0
+        if warmup_timeout_secs is not None:
+            round_max = int(warmup_timeout_secs / sleep_secs)
+        while True:
             time.sleep(sleep_secs)
             if not self.image_queue.empty() and not self.lidar_queue.empty():
                 return
+            if warmup_timeout_secs is not None:
+                round_count += 1
+                if round_count >= round_max:
+                    return
 
     def read_images(self, bag_file):
         bag = rosbag.Bag(bag_file, 'r')
