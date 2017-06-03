@@ -1,4 +1,5 @@
 import numpy as np
+import rospy
 import sensor
 import parse_tracklet
 
@@ -8,24 +9,36 @@ class TrainMsg:
         self.image = image
         self.lidar = lidar
 
+def is_before(first, second):
+    if first is not None and second is not None:
+        return first.header.stamp <= second.header.stamp
+    else:
+        return True
+
 class OrderChecker:
-    def __init__(self, enabled):
-        self.enabled = enabled
+    def __init__(self, ordercheck, delaycheck):
+        self.ordercheck = ordercheck
+        self.delaycheck = delaycheck
         self.prev_sample = None
 
+    def check_delay(self, lidar, image):
+        if lidar is not None and image is not None:
+            diff = image.header.stamp - lidar.header.stamp
+            if diff >= rospy.Duration(1):
+                print('Warning: Image-lidar delay of {} secs {} nsecs'.format(diff.secs, diff.nsecs))
+            assert (diff < rospy.Duration(3)), "Image-lidar delay of {} secs {} nsecs".format(diff.secs, diff.nsecs)
+
     def check_sample(self, sample):
-        if self.enabled:
-            if self.prev_sample is None:
-                self.prev_sample = sample
-            else:
-                assert(sample.lidar.stamp <= sample.image.stamp)
+        if self.delaycheck and sample is not None:
+            self.check_delay(sample.lidar, sample.image)
 
-                assert(prev_sample.image.stamp <= sample.image.stamp)
-                assert(prev_sample.lidar.stamp <= sample.lidar.stamp)
-                assert(prev_sample.image.stamp <= sample.lidar.stamp)
-                assert(prev_sample.lidar.stamp <= sample.image.stamp)
+        if self.ordercheck and self.prev_sample is not None and sample is not None:
+            assert(is_before(sample.lidar, sample.image))
+            assert(is_before(self.prev_sample.image, sample.image))
+            assert(is_before(self.prev_sample.lidar, sample.image))
+            assert(is_before(self.prev_sample.lidar, sample.lidar))
 
-                self.prev_sample = sample
+        self.prev_sample = sample
 
 class FrameStream:
     def __init__(self):
@@ -37,7 +50,7 @@ class FrameStream:
         self.prev_lidar = None
         self.tracklet = None
         self.frame = 0
-        self.order_checker = OrderChecker(enabled = False)
+        self.order_checker = OrderChecker(ordercheck = True, delaycheck = True)
 
     # tracklet_file is allowed to be None
     def start_read(self, bag_file, tracklet_file):
@@ -53,7 +66,7 @@ class FrameStream:
             self.tracklet = tracklets[0]
             assert(0 == self.tracklet.first_frame)
 
-        self.msg_queue.start_read(bag_file)
+        self.msg_queue.start_read(bag_file, warmup_timeout_secs = 15)
 
     def empty(self):
         return ((self.tracklet is not None and self.frame >= self.tracklet.num_frames)
