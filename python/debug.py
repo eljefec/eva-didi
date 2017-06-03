@@ -8,7 +8,11 @@ import traceback
 
 class Debugger:
     def __init__(self, logname, freqsecs = 30 * 60):
-        logging.basicConfig(filename = logname, level = logging.DEBUG)
+        logging.basicConfig(filename = logname,
+                            level = logging.DEBUG,
+                            format='%(asctime)s %(levelname)s {%(module)s} [%(funcName)s] %(message)s',
+                            datefmt='%Y-%m-%d %H:%M:%S')
+        self.logger = logging.getLogger(__name__)
 
         self.freqsecs = freqsecs
 
@@ -19,6 +23,8 @@ class Debugger:
         self.debug()
 
     def debug(self):
+        print('DEBUG: Debugger::debug was called. __name__={}'.format(__name__))
+
         self.dump(None, None)
 
         self.timer = threading.Timer(self.freqsecs, self.debug)
@@ -30,22 +36,22 @@ class Debugger:
 
     def dump(self, signal, frame):
         if signal:
-            logging.debug('Received signal: ' + str(signal))
+            self.logger.debug('Received signal: ' + str(signal))
 
         self.dumpmem()
         self.dumpstacks()
 
     def dumpmem(self):
-        logging.debug(mem_top.mem_top())
+        self.logger.debug(mem_top.mem_top())
 
     def dumpstacks(self):
         id2name = dict([(th.ident, th.name) for th in threading.enumerate()])
         for threadId, stack in sys._current_frames().items():
-            logging.debug("# Thread: %s(%d)" % (id2name.get(threadId,""), threadId))
+            self.logger.debug("# Thread: %s(%d)" % (id2name.get(threadId,""), threadId))
             for filename, lineno, name, line in traceback.extract_stack(stack):
-                logging.debug('File: "%s", line %d, in %s' % (filename, lineno, name))
+                self.logger.debug('File: "%s", line %d, in %s' % (filename, lineno, name))
                 if line:
-                    logging.debug("  %s" % (line.strip()))
+                    self.logger.debug("  %s" % (line.strip()))
 
 if __name__ == '__main__':
     debugger = Debugger('logs/debuggertest.log', 1)
