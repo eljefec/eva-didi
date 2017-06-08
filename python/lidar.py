@@ -97,25 +97,15 @@ class PointCloudConverter:
             imlib.save_np_image(birds_eye2, os.path.join(self.savepath, 'birds_eye2/' + str(msg.header.seq) + '.png'))
 
             # These values are for Velodyne HDL-32E.
-            panorama = tp.point_cloud_to_panorama(lidar,
-                                                    v_res = 1.33,
-                                                    h_res = 0.4,
-                                                    v_fov = (-30.67, 10.67),
-                                                    d_range = (0, 100),
-                                                    y_fudge = 3)
+            panorama = lidar_to_panorama(lidar)
 
             imlib.save_np_image(panorama, os.path.join(self.savepath, 'panorama/' + str(msg.header.seq) + '.png'))
 
-            slices = tp.birds_eye_height_slices(lidar,
-                                                n_slices=8,
-                                                height_range=(-2.0, 0.27),
-                                                side_range=(-10, 10),
-                                                fwd_range=(0, 20),
-                                                res=0.1)
+            slices = lidar_to_slices(lidar)
 
             # VISUALISE THE SEPARATE LAYERS IN MATPLOTLIB
-            dpi = 100       # Image resolution
-            fig, axes = plt.subplots(2, 4, figsize=(600/dpi, 300/dpi), dpi=dpi)
+            dpi = 200       # Image resolution
+            fig, axes = plt.subplots(2, 2, figsize=(800/dpi, 800/dpi), dpi=dpi)
             axes = axes.flatten()
             for i,ax in enumerate(axes):
                 ax.imshow(slices[:,:,i], cmap="gray", vmin=0, vmax=255)
@@ -123,9 +113,8 @@ class PointCloudConverter:
                 ax.xaxis.set_visible(False)     # Do not draw axis tick marks
                 ax.yaxis.set_visible(False)     # Do not draw axis tick marks
                 ax.set_title(i, fontdict={"size": 10, "color":"#FFFFFF"})
-                fig.subplots_adjust(wspace=0.20, hspace=0.20)
 
-            fig.savefig(os.path.join(self.savepath, 'slices/' + str(msg.header.seq) + '.png'))
+            fig.savefig(os.path.join(self.savepath, 'slices/' + str(msg.header.seq) + '.png'), bbox_inches='tight', dpi=200)
             plt.close(fig)
 
 class PointCloudProcessor:
@@ -211,21 +200,12 @@ class MessagePickler:
             with open('birdseye.p', 'wb') as f:
                 pickle.dump(birds_eye, f)
 
-            panorama = tp.point_cloud_to_panorama(lidar,
-                                                    v_res = 1.33,
-                                                    h_res = 0.4,
-                                                    v_fov = (-30.67, 10.67),
-                                                    d_range = (0, 100),
-                                                    y_fudge = 3)
+            panorama = lidar_to_panorama(lidar)
+
             with open('panorama.p', 'wb') as f:
                 pickle.dump(panorama, f)
 
-            slices = tp.birds_eye_height_slices(lidar,
-                                                n_slices=8,
-                                                height_range=(-2.0, 0.27),
-                                                side_range=(-10, 10),
-                                                fwd_range=(0, 20),
-                                                res=0.1)
+            slices = lidar_to_slices(lidar)
 
             with open('slices.p', 'wb') as f:
                 pickle.dump(slices, f)
@@ -235,12 +215,12 @@ if __name__ == '__main__':
     bag_name = '2.bag'
     bag_file = os.path.join(data_dir, bag_name)
 
-    counter = MessageCounter()
+    # counter = MessageCounter()
     # pickler = MessagePickler()
     converter = PointCloudConverter('/data/output', 1)
     processor = PointCloudProcessor(hertz = 40)
-    processor.add_subscriber(counter.on_msg)
-    # processor.add_subscriber(converter.on_msg)
+    # processor.add_subscriber(pickler.on_msg)
+    processor.add_subscriber(converter.on_msg)
     # processor.add_subscriber(pickler.on_msg)
 
     # Read rosbag.
