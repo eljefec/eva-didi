@@ -1,4 +1,4 @@
-name: didi2
+name: squeezeDet
 channels:
     - https://conda.anaconda.org/menpo
     - conda-forge
@@ -28,3 +28,5 @@ dependencies:
         - catkin-pkg
         - monotonic
         - mem_top
+        - easydict==1.6
+        - joblib==0.10.3
