@@ -1,4 +1,5 @@
 import cv2
+import my_bag_utils as bu
 import numpy as np
 import os
 import rosbag
@@ -43,13 +44,12 @@ def save_images(bag_file, msg_count = None):
 
     count = 0
     for msg in image_msgs:
-        save_np_image(msg.bgr, os.path.join(output_dir, 'image_raw/' + str(msg.header.seq) + '.png'))
+        save_np_image(msg.bgr, os.path.join(output_dir, str(msg.header.seq) + '.png'))
         count += 1
         if count == msg_count:
             return
 
 if __name__ == '__main__':
-    data_dir = '/data/Didi-Release-2/Data/1'
-    bag_name = '2.bag'
-    bag_file = os.path.join(data_dir, bag_name)
-    save_images(bag_file, 5)
+    bags = bu.find_bags('/data/Didi-Release-2/Data/', '*.bag')
+    for bag_file in bags:
+        save_images(bag_file, 1)
