@@ -118,7 +118,7 @@ class PointCloudConverter:
             plt.close(fig)
 
 class PointCloudProcessor:
-    def __init__(self, hertz):
+    def __init__(self, hertz = 10):
         rospy.init_node('PointCloudProcessor', anonymous=True)
         self.rate = rospy.Rate(hertz)
 
@@ -136,7 +136,7 @@ class PointCloudProcessor:
         n_lidar = bag.get_message_count(topic_filters=["/velodyne_packets"])
 
         # Publish velodyne packets from bag to topic.
-        pub = rospy.Publisher('/velodyne_packets', VelodyneScan, queue_size=600)
+        pub = rospy.Publisher('/velodyne_packets', VelodyneScan, queue_size=None)
 
         if msg_count is None:
             msg_count = n_lidar

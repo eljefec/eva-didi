@@ -50,6 +50,6 @@ def save_images(bag_file, msg_count = None):
             return
 
 if __name__ == '__main__':
-    bags = bu.find_bags('/data/Didi-Release-2/Data/', '*.bag')
+    bags = bu.find_bags('/data/')
     for bag_file in bags:
         save_images(bag_file, 1)

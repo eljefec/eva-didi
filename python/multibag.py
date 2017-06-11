@@ -36,7 +36,7 @@ class BagTracklet:
 def find_bag_tracklets(directory, tracklet_dir):
     bag_tracklets = []
 
-    bags = bu.find_bags(directory, '*.bag')
+    bags = bu.find_bags(directory)
     assert(len(bags) > 0)
 
     for bag in bags:
