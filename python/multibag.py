@@ -1,6 +1,5 @@
 from __future__ import division
 
-import fnmatch
 import my_bag_utils as bu
 import os
 import picklebag
@@ -8,15 +7,6 @@ import random
 import rosbag
 import sys
 import traindata
-
-def find_bags(directory, pattern):
-    matched_files = []
-    for root, dirs, files in os.walk(directory):
-        for basename in files:
-            if fnmatch.fnmatch(basename, pattern):
-                filename = os.path.join(root, basename)
-                matched_files.append(filename)
-    return sorted(matched_files)
 
 def find_tracklet(bag_file, tracklet_dir):
     for height in range(3):
@@ -46,7 +36,7 @@ class BagTracklet:
 def find_bag_tracklets(directory, tracklet_dir):
     bag_tracklets = []
 
-    bags = find_bags(directory, '*.bag')
+    bags = bu.find_bags(directory, '*.bag')
     assert(len(bags) > 0)
 
     for bag in bags:
