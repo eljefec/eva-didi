@@ -40,6 +40,56 @@ class OrderChecker:
 
         self.prev_sample = sample
 
+# tracklet_file is allowed to be None
+def generate_trainmsgs(bag_file, tracklet_file):
+    prev_image = None
+    prev_lidar = None
+    tracklet = None
+    frame = 0
+    order_checker = OrderChecker(ordercheck = True, delaycheck = True)
+
+    if tracklet_file is not None:
+        tracklets = parse_tracklet.parse_xml(tracklet_file)
+        assert(1 == len(tracklets))
+
+        tracklet = tracklets[0]
+        assert(0 == tracklet.first_frame)
+
+    msg_generator = sensor.generate_sensormsgs(bag_file)
+
+    while tracklet is None or frame < tracklet.num_frames:
+        if tracklet is None:
+            track = None
+        else:
+            # track: size, trans, rots
+            track = np.zeros(9, dtype=float)
+            # size
+            for i in range(3):
+                track[i] = tracklet.size[i]
+            # trans
+            for i in range(3):
+                track[3 + i] = tracklet.trans[frame][i]
+            # Let rotations (rots) be zero.
+
+        frame += 1
+
+        msg = None
+        while msg is None or msg.header is None or msg.header.frame_id != 'camera':
+            # Allow msg_generator to raise StopIteration
+            msg = next(msg_generator)
+
+            if (msg is not None and msg.header is not None):
+                if msg.header.frame_id == 'camera':
+                    prev_image = msg
+                elif msg.header.frame_id == 'velodyne':
+                    prev_lidar = msg
+
+        sample = TrainMsg(track, prev_image, prev_lidar)
+
+        order_checker.check_sample(sample)
+
+        yield sample
+
 class FrameStream:
     def __init__(self):
         self.msg_queue = sensor.SensorMsgQueue(maxsize = 10, hertz = 10)
@@ -108,6 +158,19 @@ class FrameStream:
 
 if __name__ == '__main__':
     samples = []
+    generator = generate_trainmsgs('/data/didi/didi-round1/Didi-Release-2/Data/1/3.bag', '/old_data/output/tracklet/1/3/tracklet_labels.xml')
+
+    for sample in generator:
+        samples.append(sample)
+        print('track: {0}'.format(sample.pose))
+        if sample.image is not None:
+            print('image: {0}'.format(sample.image.header.stamp))
+        if sample.lidar is not None:
+            print('lidar: {0}'.format(sample.lidar.header.stamp))
+        print('len(samples): {0}'.format(len(samples)))
+
+    exit()
+
     msgstream = FrameStream()
     for i in range(2):
         msgstream.start_read('/data/Didi-Release-2/Data/1/3.bag', '/data/output/tracklet/1/3/tracklet_labels.xml')
