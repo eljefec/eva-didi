@@ -20,14 +20,16 @@ class DatumChecker:
                 print('Warning: Datastream returned many null messages in a row.')
 
 class TrainDataGenerator:
-    def __init__(self, datastream, include_ground_truth):
-        self.datastream = datastream
+    def __init__(self, multibag, include_ground_truth):
+        self.multibag = multibag
         self.include_ground_truth = include_ground_truth
 
     def get_count(self):
-        return self.datastream.count()
+        return self.multibag.count()
 
     def generate(self, batch_size):
+        generator = self.multibag.generate()
+
         images = []
         panoramas = []
         slices_list = []
@@ -38,7 +40,7 @@ class TrainDataGenerator:
             datum_checker = DatumChecker()
             datum = None
             while datum is None:
-                datum = self.datastream.next()
+                datum = next(generator)
                 datum_checker.report_datum(datum)
 
             if datum.lidar_panorama is None:

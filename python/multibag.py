@@ -90,35 +90,44 @@ def shuffle(bag_tracklets, seed):
     random.shuffle(bag_tracklets)
 
 class MultiBagStream:
-    def __init__(self, bag_tracklets, use_pickle_adapter):
+    def __init__(self, bag_tracklets):
         self.bag_tracklets = bag_tracklets
         self.frame_count = count_image_messages(bag_tracklets)
-
-        if use_pickle_adapter:
-            self.traindata = picklebag.PickleAdapter()
-        else:
-            self.traindata = traindata.TrainDataStream()
 
         self.bag_index = 0
 
     def count(self):
         return self.frame_count
 
-    def next(self):
-        if self.traindata.empty():
-            self.bag_index = (self.bag_index + 1) % len(self.bag_tracklets)
-            bag_tracklet = self.bag_tracklets[self.bag_index]
-            print('Opening next bag: ', bag_tracklet.bag)
-            self.traindata.start_read(bag_tracklet.bag, bag_tracklet.tracklet)
-
-        return self.traindata.next()
+    def generate(self):
+        bag_index = 0
+        bag_tracklet = self.bag_tracklets[bag_index]
+        generator = traindata.generate_traindata(bag_tracklet.bag, bag_tracklet.tracklet)
+        while True:
+            try:
+                yield next(generator)
+            except StopIteration:
+                bag_index = (bag_index + 1) % len(self.bag_tracklets)
+                bag_tracklet = self.bag_tracklets[bag_index]
+                print('Opening next bag: ', bag_tracklet.bag)
+                generator = traindata.generate_traindata(bag_tracklet.bag, bag_tracklet.tracklet)
 
 if __name__ == '__main__':
     import copy
 
-    bag_tracklets = find_bag_tracklets('/data/Didi-Release-2/Data/', '/data/output/tracklet')
+    bag_tracklets = find_bag_tracklets('/data/didi/didi-round1/Didi-Release-2/Data/3', '/old_data/output/tracklet/3')
     for bt in bag_tracklets:
         print(bt)
+
+    stream = MultiBagStream(bag_tracklets)
+    print(stream.count())
+    count = 0
+    for datum in stream.generate():
+        count += 1
+        if count % 1000 == 0:
+            print(count)
+
+    exit()
 
     for seed in range(10):
         copied = copy.copy(bag_tracklets)
