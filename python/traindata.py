@@ -20,6 +20,25 @@ class TrainData:
                 self.lidar_slices.shape if self.lidar_slices is not None else 'None',
                 self.lidar_slices.dtype if self.lidar_slices is not None else 'None')
 
+def generate_traindata(bag_file, tracklet_file):
+    data_generator = framestream.generate_trainmsgs(bag_file, tracklet_file)
+
+    while True:
+        frame = next(data_generator)
+
+        if frame.lidar is None:
+            lidar_panorama = None
+            lidar_slices = None
+        else:
+            points = pc2.read_points(frame.lidar)
+            points = np.array(list(points))
+            lidar_panorama = lidar.lidar_to_panorama(points)
+            lidar_slices = lidar.lidar_to_slices(points)
+
+        imagemsg = image.ImageMsg(frame.image)
+
+        yield TrainData(frame.pose, imagemsg.bgr, lidar_panorama, lidar_slices)
+
 class TrainDataStream:
     def __init__(self):
         self.msgstream = framestream.FrameStream()
@@ -48,6 +67,16 @@ class TrainDataStream:
         return TrainData(msg.pose, imagemsg.bgr, lidar_panorama, lidar_slices)
 
 if __name__ == '__main__':
+    generator = generate_traindata('/data/didi/didi-round1/Didi-Release-2/Data/1/3.bag', '/old_data/output/tracklet/1/3/tracklet_labels.xml')
+
+    count = 0
+    for datum in generator:
+        count += 1
+        print(datum)
+    print('count: {0}'.format(count))
+
+    exit()
+
     count = 0
     datastream = TrainDataStream()
     for i in range(2):
