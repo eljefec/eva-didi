@@ -79,25 +79,20 @@ CHECKPOINT_DIR = 'checkpoints'
 HISTORY_DIR = 'history'
 
 def train_model(model):
-    validation_batch_size = 32
-    train_batch_size = 96
-    bag_tracklets = multibag.find_bag_tracklets('/data/Didi-Release-2/Data/', '/data/output/tracklet/')
+    validation_batch_size = 128
+    train_batch_size = 128
+    bag_tracklets = multibag.find_bag_tracklets('/data/didi/didi-round1/Didi-Release-2/Data/', '/old_data/output/tracklet/')
 
     # Good shuffle seeds: (7, 0.15)
     shuffleseed = 7
     multibag.shuffle(bag_tracklets, shuffleseed)
     split = multibag.train_validation_split(bag_tracklets, 0.15)
 
-    # Either the training or validation data stream must be pre-pickled. Otherwise, the messages would cross between generators because both generators would pull messages through the velodyne node.
-    picklebag.pre_pickle(split.validation_bags, frames_per_pickle = 32)
-
-    validation_stream = multibag.MultiBagStream(split.validation_bags,
-                                                use_pickle_adapter = True)
+    validation_stream = multibag.MultiBagStream(split.validation_bags)
     validation_generator = TrainDataGenerator(validation_stream,
                                               include_ground_truth = True)
 
-    training_stream = multibag.MultiBagStream(split.train_bags,
-                                              use_pickle_adapter = False)
+    training_stream = multibag.MultiBagStream(split.train_bags)
     training_generator = TrainDataGenerator(training_stream,
                                             include_ground_truth = True)
 
