@@ -9,7 +9,7 @@ import sys
 import traindata
 
 def find_tracklet(bag_file, tracklet_dir):
-    for height in range(3):
+    for height in range(1, 6):
         base = os.path.splitext(bag_file)[0]
         subdir_stack = []
         for i in range(height):
@@ -17,8 +17,18 @@ def find_tracklet(bag_file, tracklet_dir):
             base = split[0]
             subdir_stack.append(split[1])
         tracklet_path = tracklet_dir
-        while subdir_stack:
-            tracklet_path = os.path.join(tracklet_path, subdir_stack.pop())
+
+        # Reassemble the tracklet path created by Udacity's bag_to_kitti.py
+        subdir = ''
+        while len(subdir_stack) > 1:
+            if subdir:
+                subdir += '_'
+            subdir += subdir_stack.pop()
+
+        # Bag name
+        subdir += '-' + subdir_stack.pop()
+
+        tracklet_path = os.path.join(tracklet_path, subdir)
         tracklet_path = os.path.join(tracklet_path, 'tracklet_labels.xml')
         if os.path.exists(tracklet_path):
             return tracklet_path
@@ -90,9 +100,10 @@ def shuffle(bag_tracklets, seed):
     random.shuffle(bag_tracklets)
 
 class MultiBagStream:
-    def __init__(self, bag_tracklets):
+    def __init__(self, bag_tracklets, fn_create_generator = traindata.generate_traindata):
         self.bag_tracklets = bag_tracklets
         self.frame_count = count_image_messages(bag_tracklets)
+        self.fn_create_generator = fn_create_generator
 
         self.bag_index = 0
 
@@ -102,7 +113,7 @@ class MultiBagStream:
     def generate(self):
         bag_index = 0
         bag_tracklet = self.bag_tracklets[bag_index]
-        generator = traindata.generate_traindata(bag_tracklet.bag, bag_tracklet.tracklet)
+        generator = self.fn_create_generator(bag_tracklet.bag, bag_tracklet.tracklet)
         while True:
             try:
                 yield next(generator)
@@ -110,12 +121,12 @@ class MultiBagStream:
                 bag_index = (bag_index + 1) % len(self.bag_tracklets)
                 bag_tracklet = self.bag_tracklets[bag_index]
                 print('Opening next bag: ', bag_tracklet.bag)
-                generator = traindata.generate_traindata(bag_tracklet.bag, bag_tracklet.tracklet)
+                generator = self.fn_create_generator(bag_tracklet.bag, bag_tracklet.tracklet)
 
 if __name__ == '__main__':
     import copy
 
-    bag_tracklets = find_bag_tracklets('/data/didi/didi-round1/Didi-Release-2/Data/3', '/old_data/output/tracklet/3')
+    bag_tracklets = find_bag_tracklets('/data/bags/didi-round1/Didi-Release-2/Data/3', '/data/tracklets')
     for bt in bag_tracklets:
         print(bt)
 
