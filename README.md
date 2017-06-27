@@ -17,14 +17,14 @@ This contains my work (Team Eva) on the Udacity-Didi competition (https://www.ud
 #### multibag.py
 - Read multiple bags
 - Returns `class TrainData`
-  ```
-  bag_tracklets = find_bag_tracklets(bag_dir, tracklet_dir)
-  stream = MultiBagStream(bag_tracklets)
-  for datum in stream.generate():
-      count += 1
-  ```
+```
+bag_tracklets = find_bag_tracklets(bag_dir, tracklet_dir)
+stream = MultiBagStream(bag_tracklets)
+for datum in stream.generate():
+    count += 1
+```
 #### traindata.py
-- `class TrainDataStream`
+- `def generate_traindata(bag, tracklet)`
 - Prepare training data
 - Returns `class TrainData`
     - pose
@@ -32,7 +32,7 @@ This contains my work (Team Eva) on the Udacity-Didi competition (https://www.ud
     - lidar (panorama)
     - lidar height slices
 #### framestream.py
-- `class FrameStream`
+- `def generate_trainmsgs(bag, tracklet)`
 - Synchronize image and lidar messages
 - Combine latest image and lidar into single `TrainMsg`
 - Returns `class TrainMsg`
@@ -40,6 +40,6 @@ This contains my work (Team Eva) on the Udacity-Didi competition (https://www.ud
     - image
     - lidar
 #### sensor.py
-- `class SensorMsgQueue`
-    - Process images and lidar from a ROS bag
-    - Return image and lidar messages in sequence
+- `def generate_sensormsgs(bag_file)`
+- Process images and lidar from a ROS bag
+- Return image and lidar messages in sequence
