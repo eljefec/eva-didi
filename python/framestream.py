@@ -9,6 +9,15 @@ class TrainMsg:
         self.image = image
         self.lidar = lidar
 
+        self._check_delay()
+
+    def _check_delay(self):
+        if self.lidar is not None and self.image is not None:
+            diff = self.image.header.stamp - self.lidar.header.stamp
+            if diff >= rospy.Duration(1):
+                print('Warning: Image-lidar delay of {} secs {} nsecs. Nulling lidar'.format(diff.secs, diff.nsecs))
+                self.lidar = None
+
 def is_before(first, second):
     if first is not None and second is not None:
         return first.header.stamp <= second.header.stamp
@@ -16,22 +25,11 @@ def is_before(first, second):
         return True
 
 class OrderChecker:
-    def __init__(self, ordercheck, delaycheck):
+    def __init__(self, ordercheck):
         self.ordercheck = ordercheck
-        self.delaycheck = delaycheck
         self.prev_sample = None
 
-    def check_delay(self, lidar, image):
-        if lidar is not None and image is not None:
-            diff = image.header.stamp - lidar.header.stamp
-            if diff >= rospy.Duration(1):
-                print('Warning: Image-lidar delay of {} secs {} nsecs'.format(diff.secs, diff.nsecs))
-            assert (diff < rospy.Duration(3)), "Image-lidar delay of {} secs {} nsecs".format(diff.secs, diff.nsecs)
-
     def check_sample(self, sample):
-        if self.delaycheck and sample is not None:
-            self.check_delay(sample.lidar, sample.image)
-
         if self.ordercheck and self.prev_sample is not None and sample is not None:
             assert(is_before(sample.lidar, sample.image))
             assert(is_before(self.prev_sample.image, sample.image))
@@ -46,7 +44,7 @@ def generate_trainmsgs(bag_file, tracklet_file):
     prev_lidar = None
     tracklet = None
     frame = 0
-    order_checker = OrderChecker(ordercheck = True, delaycheck = True)
+    order_checker = OrderChecker(ordercheck = True)
 
     if tracklet_file is not None:
         tracklets = parse_tracklet.parse_xml(tracklet_file)
