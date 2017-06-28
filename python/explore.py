@@ -13,7 +13,7 @@ def make_and_save_histograms(bag, poses, dims, show = False):
     print(poses.shape)
     histograms = []
 
-    f, axarr = plt.subplots(len(dims))
+    f, axarr = plt.subplots(3, 3)
     plt.title(bag)
 
     for pose_dim in dims:
@@ -21,7 +21,7 @@ def make_and_save_histograms(bag, poses, dims, show = False):
         hist = np.histogram(pose_slice, bins=bins)
         histograms.append(hist)
 
-        sub = axarr[pose_dim]
+        sub = axarr[pose_dim % 3][pose_dim / 3]
         sub.set_title(pose_dim)
         sub.hist(pose_slice, bins=100)
 
@@ -45,19 +45,15 @@ def make_histograms(bag_tracklets, show):
     histograms_by_bag = dict()
     all_poses = []
 
-    # bag_tracklets = [multibag.BagTracklet('/data/Didi-Release-2/Data/1/3.bag', '/data/output/tracklet/1/3/tracklet_labels.xml')]
-
-    dims = [i for i in range(6)]
+    dims = [i for i in range(9)]
     print('dims', dims)
 
     for bt in bag_tracklets:
         print(bt.bag)
         poses = []
 
-        msgstream = framestream.FrameStream()
-        msgstream.start_read(bt.bag, bt.tracklet)
-        while not msgstream.empty():
-            sample = msgstream.next()
+        generator = framestream.generate_trainmsgs(bt.bag, bt.tracklet)
+        for sample in generator:
             poses.append(sample.pose)
 
         histograms_by_bag[bt.bag] = make_and_save_histograms(bt.bag, poses, dims, show)
@@ -81,6 +77,8 @@ if __name__ == '__main__':
     if not os.path.exists(FIG_DIR):
         os.makedirs(FIG_DIR)
 
-    bt = multibag.find_bag_tracklets('/data/Didi-Release-2/Data/', '/data/output/tracklet/')
+    bagdir = '/data/bags/'
+
+    bt = multibag.find_bag_tracklets(bagdir, '/data/tracklets/')
 
     make_histograms(bt, show = False)
