@@ -24,13 +24,24 @@ def lidar_to_panorama(lidar):
                                         d_range = (0, 100),
                                         y_fudge = 3)
 
+HEIGHT_RANGE=(-1.25, -0.25)
+SIDE_RANGE=(-15, 15)
+FWD_RANGE=(-10, 20)
+
 def lidar_to_slices(lidar):
     return tp.birds_eye_height_slices(lidar,
                                         n_slices=4,
-                                        height_range=(-1.25, -0.25),
-                                        side_range=(-15, 15),
-                                        fwd_range=(-10, 20),
+                                        height_range=HEIGHT_RANGE,
+                                        side_range=SIDE_RANGE,
+                                        fwd_range=FWD_RANGE,
                                         res=0.1)
+
+def lidar_to_birdseye(lidar):
+    return tp.point_cloud_2_birdseye(lidar,
+                                     res = 0.1,
+                                     side_range = SIDE_RANGE,
+                                     fwd_range = FWD_RANGE,
+                                     height_range = HEIGHT_RANGE)
 
 class PointCloudMsg:
     def __init__(self, msg):
