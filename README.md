@@ -31,14 +31,21 @@ for datum in stream.generate():
     - image (BGR)
     - lidar (panorama)
     - lidar height slices
+#### numpystream.py
+- `def generate_numpystream(bag, tracklet)`
+- Generate stream of numpy messages (converted from ROS messages)
+- Returns `class NumpyData`
+    - pose
+    - image (BGR)
+    - lidar (numpy)
 #### framestream.py
 - `def generate_trainmsgs(bag, tracklet)`
-- Synchronize image and lidar messages
-- Combine latest image and lidar into single `TrainMsg`
+- Synchronize image and lidar ROS messages
+- Combine latest image and lidar ROS messages into single `TrainMsg`
 - Returns `class TrainMsg`
     - pose
-    - image
-    - lidar
+    - image (ROS msg)
+    - lidar (ROS msg)
 #### sensor.py
 - `def generate_sensormsgs(bag_file)`
 - Process images and lidar from a ROS bag
