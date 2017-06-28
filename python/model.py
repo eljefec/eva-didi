@@ -9,7 +9,6 @@ from keras.models import Model
 import multibag
 import numpy as np
 import pickle
-import picklebag
 import traindata
 
 def pool_and_conv(x):
@@ -122,7 +121,7 @@ def train_model(model):
     with open(get_model_filename(HISTORY_DIR, '', 'p'), 'wb') as f:
         pickle.dump(hist.history, f)
 
-import stopwatch
+from util import *
 def get_model_filename(directory, suffix = '', ext = 'h5'):
     return '{}/model_{}{}.{}'.format(directory, stopwatch.format_now(), suffix, ext)
 

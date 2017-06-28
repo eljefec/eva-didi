@@ -4,7 +4,6 @@ import keras
 import multibag
 import pandas as pd
 import pickle
-import picklebag
 
 # From https://github.com/udacity/didi-competition/blob/master/tracklets/python/bag_utils.py
 def load_metadata(metadata_path):
@@ -40,8 +39,6 @@ def predict_tracklet(model_file, bag_file, metadata_path, output_file, pickle_fi
 
     model = keras.models.load_model(model_file)
 
-    # datastream = picklebag.PickleAdapter()
-    # datastream.start_read(bag_file, tracklet_file = None)
     datastream = multibag.MultiBagStream([multibag.BagTracklet(bag_file, None)],
                                          use_pickle_adapter = False)
     input_generator = generator.TrainDataGenerator(datastream, include_ground_truth = False)

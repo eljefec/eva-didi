@@ -2,7 +2,6 @@ from __future__ import division
 
 import my_bag_utils as bu
 import os
-import picklebag
 import random
 import rosbag
 import sys
