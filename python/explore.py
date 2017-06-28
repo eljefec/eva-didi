@@ -73,6 +73,9 @@ def make_histograms(bag_tracklets, show):
     with open(os.path.join(FIG_DIR, 'posehist.p'), 'wb') as f:
         pickle.dump(pose_histograms, f)
 
+    with open(os.path.join(FIG_DIR, 'all_poses.p'), 'wb') as f:
+        pickle.dump(all_poses, f)
+
 if __name__ == '__main__':
     if not os.path.exists(FIG_DIR):
         os.makedirs(FIG_DIR)
