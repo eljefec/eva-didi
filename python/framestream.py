@@ -69,7 +69,9 @@ def generate_trainmsgs(bag_file, tracklet_file):
             # trans
             for i in range(3):
                 track[3 + i] = tracklet.trans[frame][i]
-            # Let rotations (rots) be zero.
+            # rots
+            for i in range(3):
+                track[6 + i] = tracklet.rots[frame][i]
 
         frame += 1
 
