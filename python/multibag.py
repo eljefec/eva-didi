@@ -8,7 +8,7 @@ import sys
 import traindata
 
 def find_tracklet(bag_file, tracklet_dir):
-    for height in range(1, 6):
+    for height in range(1, 10):
         base = os.path.splitext(bag_file)[0]
         subdir_stack = []
         for i in range(height):
@@ -125,7 +125,7 @@ class MultiBagStream:
 if __name__ == '__main__':
     import copy
 
-    bag_tracklets = find_bag_tracklets('/data/bags/didi-round1/Didi-Release-2/Data/3', '/data/tracklets')
+    bag_tracklets = find_bag_tracklets('/data/bags/', '/data/tracklets')
     for bt in bag_tracklets:
         print(bt)
 
