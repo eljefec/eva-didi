@@ -9,6 +9,9 @@ This contains my work (Team Eva) on the Udacity-Didi competition (https://www.ud
 #### lidarbag.py
 - Convert ROS bags containing `velodyne_packets` messages to separate bags containing `velodyne_points` messages
 #### lidar.py
+- `def lidar_to_panorama(lidar)`
+- `def lidar_to_slices(lidar)`
+- `def lidar_to_birdseye(lidar)`
 - `class PointCloudProcessor`
     - Clients can register to be called back with PointCloud2 messages
     - ROS node
