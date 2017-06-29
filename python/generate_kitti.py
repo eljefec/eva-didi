@@ -12,7 +12,7 @@ def bbox_points(pose):
 
 def generate_kitti(bag_tracklets):
     stream = multibag.MultiBagStream(bag_tracklets, numpystream.generate_numpystream)
-    for numpydata in stream.generate():
+    for numpydata in stream.generate(infinite = False):
         lidar = numpydata.lidar
         pose = numpydata.pose
         if lidar is not None:
