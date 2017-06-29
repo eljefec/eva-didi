@@ -61,7 +61,7 @@ class TrainDataGenerator:
             panoramas.append(panorama)
             slices_list.append(slices)
             if self.include_ground_truth:
-                poses.append(datum.pose)
+                poses.append(datum.pose.get_array())
 
             if (batch_size == len(images)):
                 image_batch = np.stack(images)

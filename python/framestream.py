@@ -3,6 +3,30 @@ import rospy
 import sensor
 import parse_tracklet
 
+class Pose:
+    def __init__(self, size, trans, rots):
+        self.h = size[0]
+        self.w = size[1]
+        self.l = size[2]
+        self.tx = trans[0]
+        self.ty = trans[1]
+        self.tz = trans[2]
+        self.rx = rots[0]
+        self.ry = rots[1]
+        self.rz = rots[2]
+
+    def get_array(self):
+        return np.array([self.h,
+                         self.w,
+                         self.l,
+                         self.tx,
+                         self.ty,
+                         self.tz,
+                         self.rx,
+                         self.ry,
+                         self.rz],
+                        dtype=float)
+
 class TrainMsg:
     def __init__(self, pose, image, lidar):
         self.pose = pose
@@ -57,19 +81,9 @@ def generate_trainmsgs(bag_file, tracklet_file):
 
     while tracklet is None or frame < tracklet.num_frames:
         if tracklet is None:
-            track = None
+            pose = None
         else:
-            # track: size, trans, rots
-            track = np.zeros(9, dtype=float)
-            # size
-            for i in range(3):
-                track[i] = tracklet.size[i]
-            # trans
-            for i in range(3):
-                track[3 + i] = tracklet.trans[frame][i]
-            # rots
-            for i in range(3):
-                track[6 + i] = tracklet.rots[frame][i]
+            pose = Pose(tracklet.size, tracklet.trans[frame], tracklet.rots[frame])
 
         frame += 1
 
@@ -84,7 +98,7 @@ def generate_trainmsgs(bag_file, tracklet_file):
                 elif msg.header.frame_id == 'velodyne':
                     prev_lidar = msg
 
-        sample = TrainMsg(track, prev_image, prev_lidar)
+        sample = TrainMsg(pose, prev_image, prev_lidar)
 
         order_checker.check_sample(sample)
 

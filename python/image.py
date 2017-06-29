@@ -1,3 +1,4 @@
+from PIL import Image, ImageDraw
 import cv2
 import my_bag_utils as bu
 import numpy as np
@@ -14,9 +15,12 @@ class ImageMsg:
         img = cv2.cvtColor(img, cv2.COLOR_BAYER_GR2BGR)
         self.bgr = img
 
-def save_np_image(nparr, fullpath):
-    from PIL import Image
+def save_np_image(nparr, fullpath, bbox = None):
     im = Image.fromarray(nparr)
+    if bbox is not None:
+        draw = ImageDraw.Draw(im)
+        draw.rectangle(bbox, outline=128)
+        del draw
     im.save(fullpath)
 
 def read_images(bag_file):
