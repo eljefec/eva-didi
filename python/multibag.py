@@ -109,7 +109,7 @@ class MultiBagStream:
     def count(self):
         return self.frame_count
 
-    def generate(self):
+    def generate(self, infinite):
         bag_index = 0
         bag_tracklet = self.bag_tracklets[bag_index]
         generator = self.fn_create_generator(bag_tracklet.bag, bag_tracklet.tracklet)
@@ -117,7 +117,11 @@ class MultiBagStream:
             try:
                 yield next(generator)
             except StopIteration:
-                bag_index = (bag_index + 1) % len(self.bag_tracklets)
+                bag_index += 1
+                if not infinite:
+                    if bag_index >= len(self.bag_tracklets):
+                        raise StopIteration
+                bag_index = bag_index % len(self.bag_tracklets)
                 bag_tracklet = self.bag_tracklets[bag_index]
                 print('Opening next bag: ', bag_tracklet.bag)
                 generator = self.fn_create_generator(bag_tracklet.bag, bag_tracklet.tracklet)
