@@ -36,12 +36,13 @@ def lidar_to_slices(lidar):
                                         fwd_range=FWD_RANGE,
                                         res=0.1)
 
-def lidar_to_birdseye(lidar):
+def lidar_to_birdseye(lidar, return_points = False):
     return tp.point_cloud_2_birdseye(lidar,
                                      res = 0.1,
                                      side_range = SIDE_RANGE,
                                      fwd_range = FWD_RANGE,
-                                     height_range = HEIGHT_RANGE)
+                                     height_range = HEIGHT_RANGE,
+                                     return_points = return_points)
 
 class PointCloudMsg:
     def __init__(self, msg):

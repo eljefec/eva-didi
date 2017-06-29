@@ -190,6 +190,7 @@ def point_cloud_2_birdseye(points,
                            side_range=(-10., 10.),  # left-most to right-most
                            fwd_range = (-10., 10.), # back-most to forward-most
                            height_range=(-2., 2.),  # bottom-most to upper-most
+                           return_points = False
                            ):
     """ Creates an 2D birds eye view representation of the point cloud data.
 
@@ -240,6 +241,9 @@ def point_cloud_2_birdseye(points,
     # floor & ceil used to prevent anything being rounded to below 0 after shift
     x_img -= int(np.floor(side_range[0] / res))
     y_img += int(np.ceil(fwd_range[1] / res))
+
+    if return_points:
+        return np.stack((x_img, y_img), axis=-1)
 
     # CLIP HEIGHT VALUES - to between min and max heights
     pixel_values = np.clip(a=z_points,
