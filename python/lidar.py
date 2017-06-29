@@ -25,8 +25,8 @@ def lidar_to_panorama(lidar):
                                         y_fudge = 3)
 
 HEIGHT_RANGE=(-1.25, -0.25)
-SIDE_RANGE=(-15, 15)
-FWD_RANGE=(-10, 20)
+SIDE_RANGE=(-30, 30)
+FWD_RANGE=(-30, 30)
 
 def lidar_to_slices(lidar):
     return tp.birds_eye_height_slices(lidar,
