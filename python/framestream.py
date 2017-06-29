@@ -4,7 +4,8 @@ import sensor
 import parse_tracklet
 
 class Pose:
-    def __init__(self, size, trans, rots):
+    def __init__(self, object_type, size, trans, rots):
+        self.object_type = object_type
         self.h = size[0]
         self.w = size[1]
         self.l = size[2]
@@ -83,7 +84,7 @@ def generate_trainmsgs(bag_file, tracklet_file):
         if tracklet is None:
             pose = None
         else:
-            pose = Pose(tracklet.size, tracklet.trans[frame], tracklet.rots[frame])
+            pose = Pose(tracklet.object_type, tracklet.size, tracklet.trans[frame], tracklet.rots[frame])
 
         frame += 1
 
