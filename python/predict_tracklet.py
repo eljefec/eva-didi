@@ -1,81 +1,150 @@
-import generate_tracklet
-import generator
-import keras
-import multibag
-import pandas as pd
-import pickle
+# Based loosely on https://github.com/BichenWuUCB/squeezeDet/blob/master/src/demo.py
 
-# From https://github.com/udacity/didi-competition/blob/master/tracklets/python/bag_utils.py
-def load_metadata(metadata_path):
-    metadata_df = pd.read_csv(metadata_path, header=0, index_col=None, quotechar="'")
-    return metadata_df.to_dict(orient='records')
+# from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
 
-# From https://github.com/udacity/didi-competition/blob/master/tracklets/python/bag_to_kitti.py
-def extract_metadata(md, obs_name):
-    md = next(x for x in md if x['obstacle_name'] == obs_name)
-    return md
+import cv2
+import time
+import sys
+import os
+import glob
 
-def numpy_preds_to_dicts(predictions):
-    poses = []
-    count = predictions.shape[0]
-    for i in range(count):
-        # See framestream.py
-        # 0-2: l,w,h
-        # 3-5: tx, ty, tz
-        # 6-8: rots
-        np_pred = predictions[i]
-        pose = {'tx': np_pred[3],
-                'ty': np_pred[4],
-                'tz': np_pred[5],
-                'rx': 0,
-                'ry': 0,
-                'rz': 0}
-        poses.append(pose)
-    return poses
+import numpy as np
+import tensorflow as tf
 
-def predict_tracklet(model_file, bag_file, metadata_path, output_file, pickle_file = None):
-    md = extract_metadata(load_metadata(metadata_path), 'obs1')
-    tracklet = generate_tracklet.Tracklet(object_type=md['object_type'], l=md['l'], w=md['w'], h=md['h'], first_frame=0)
+import lidar as ld
+import numpystream as ns
+import track
 
-    model = keras.models.load_model(model_file)
+from config import *
+# from squeezeDet.src.train import _draw_box
+from nets import *
+import utils.util
 
-    datastream = multibag.MultiBagStream([multibag.BagTracklet(bag_file, None)],
-                                         use_pickle_adapter = False)
-    input_generator = generator.TrainDataGenerator(datastream, include_ground_truth = False)
+FLAGS = tf.app.flags.FLAGS
 
-    batch_size = 64
-    print('input_generator.get_count()', input_generator.get_count())
-    steps = input_generator.get_count() / batch_size
-    if input_generator.get_count() % batch_size > 0:
-        steps += 1
-    print('steps', steps)
-    predictions = model.predict_generator(input_generator.generate(batch_size), steps)
+tf.app.flags.DEFINE_string(
+    'mode', 'image', """'image' or 'video'.""")
+tf.app.flags.DEFINE_string(
+    'checkpoint', '/home/eljefec/repo/squeezeDet/data/model_checkpoints/didi/model.ckpt-6000',
+    """Path to the model parameter file.""")
+tf.app.flags.DEFINE_string(
+    'input_path', './data/KITTI/training/image_2/0*0000.png',
+    """Input image or video to be detected. Can process glob input such as """
+    """./data/00000*.png.""")
+tf.app.flags.DEFINE_string(
+    'out_dir', './data/out/', """Directory to dump output image or video.""")
+tf.app.flags.DEFINE_string(
+    'demo_net', 'didi', """Neural net architecture.""")
+tf.app.flags.DEFINE_string(
+    'bag_file', '/data/bags/didi-round2/release/car/training/nissan_driving_past_it/nissan07.bag', """ROS bag.""")
+tf.app.flags.DEFINE_string('gpu', '0', """gpu id.""")
 
-    print('predictions.shape:', predictions.shape)
 
-    # Remove extra predictions due to using batch-based input_generator.
-    predictions = predictions[:input_generator.get_count()]
+def predict_tracklet(bag_file):
+  """Detect image."""
 
-    print('predictions.shape:', predictions.shape)
+  generator = ns.generate_numpystream(bag_file, tracklet_file = None)
 
-    tracklet.poses = numpy_preds_to_dicts(predictions)
-    tracklet_collection = generate_tracklet.TrackletCollection()
-    tracklet_collection.tracklets.append(tracklet)
-    tracklet_collection.write_xml(output_file)
+  assert FLAGS.demo_net == 'squeezeDet' or FLAGS.demo_net == 'squeezeDet+' \
+         or FLAGS.demo_net == 'didi', \
+      'Selected nueral net architecture not supported: {}'.format(FLAGS.demo_net)
 
-    if pickle_file:
-        result_map = dict()
-        result_map['model_file'] = model_file
-        result_map['bag_file'] = bag_file
-        result_map['predictions'] = predictions
+  with tf.Graph().as_default():
+    # Load model
+    if FLAGS.demo_net == 'squeezeDet':
+      mc = kitti_squeezeDet_config()
+      mc.BATCH_SIZE = 1
+      # model parameters will be restored from checkpoint
+      mc.LOAD_PRETRAINED_MODEL = False
+      model = SqueezeDet(mc, FLAGS.gpu)
+    elif FLAGS.demo_net == 'squeezeDet+':
+      mc = kitti_squeezeDetPlus_config()
+      mc.BATCH_SIZE = 1
+      mc.LOAD_PRETRAINED_MODEL = False
+      model = SqueezeDetPlus(mc, FLAGS.gpu)
+    elif FLAGS.demo_net == 'didi':
+      mc = didi_squeezeDet_config()
+      mc.BATCH_SIZE = 1
+      mc.LOAD_PRETRAINED_MODEL = False
+      model = SqueezeDet(mc, FLAGS.gpu)
 
-        with open(pickle_file, 'wb') as f:
-            pickle.dump(result_map, f)
+    saver = tf.train.Saver(model.model_params)
+
+    car_tracker = track.Tracker(img_shape = (mc.IMAGE_WIDTH, mc.IMAGE_HEIGHT),
+                                heatmap_window_size = 5,
+                                heatmap_threshold_per_frame = 0.5,
+                                vehicle_window_size = 5)
+
+    ped_tracker = track.Tracker(img_shape = (mc.IMAGE_WIDTH, mc.IMAGE_HEIGHT),
+                                heatmap_window_size = 5,
+                                heatmap_threshold_per_frame = 0.5,
+                                vehicle_window_size = 5)
+
+    frame_idx = 0
+
+    with tf.Session(config=tf.ConfigProto(allow_soft_placement=True)) as sess:
+      saver.restore(sess, FLAGS.checkpoint)
+
+      # for f in glob.iglob(FLAGS.input_path):
+      for numpydata in generator:
+        lidar = numpydata.lidar
+        if lidar is not None:
+          lidar = ld.lidar_to_birdseye(lidar)
+
+          im = cv2.resize(lidar, (mc.IMAGE_WIDTH, mc.IMAGE_HEIGHT))
+          im = cv2.cvtColor(im, cv2.COLOR_GRAY2BGR)
+          im = im.astype(np.float32, copy=False)
+          input_image = im - mc.BGR_MEANS
+
+          # Detect
+          det_boxes, det_probs, det_class = sess.run(
+              [model.det_boxes, model.det_probs, model.det_class],
+              feed_dict={model.image_input:[input_image]})
+
+          print('det_boxes.shape', det_boxes.shape)
+
+          # Filter
+          final_boxes, final_probs, final_class = model.filter_prediction(
+              det_boxes[0], det_probs[0], det_class[0])
+
+          keep_idx    = [idx for idx in range(len(final_probs)) \
+                            if final_probs[idx] > mc.PLOT_PROB_THRESH]
+          final_boxes = [final_boxes[idx] for idx in keep_idx]
+          final_probs = [final_probs[idx] for idx in keep_idx]
+          final_class = [final_class[idx] for idx in keep_idx]
+
+          if final_boxes:
+            print('final_boxes', final_boxes)
+
+          car_boxes = []
+          car_probs = []
+          ped_boxes = []
+          ped_probs = []
+
+          for box, prob, class_idx in zip(final_boxes, final_probs, final_class):
+            box = utils.util.bbox_transform(box)
+            if class_idx == 0:
+              car_boxes.append(box)
+              car_probs.append(prob)
+            elif class_idx == 1:
+              ped_boxes.append(box)
+              ped_probs.append(prob)
+
+          car_tracker.track(car_boxes, car_probs)
+          ped_tracker.track(ped_boxes, ped_probs)
+
+          print('Frame: {}, Cars: {}, Pedestrians: {}'.format(frame_idx, len(car_tracker.vehicles), len(ped_tracker.vehicles)))
+
+        frame_idx += 1
+
+
+def main(argv=None):
+  if not tf.gfile.Exists(FLAGS.out_dir):
+    tf.gfile.MakeDirs(FLAGS.out_dir)
+  if FLAGS.mode == 'image':
+    predict_tracklet(FLAGS.bag_file)
 
 if __name__ == '__main__':
-    model_file = '/home/eljefec/repo/eva-didi/python/checkpoints/model_2017-06-01_11h24m33e04-vl100.04.h5'
-    predict_tracklet(model_file,
-                     '/data/Didi-Release-2/Data/Round 1 Test/19_f2.bag',
-                     '/data/Didi-Release-2/Data/Round 1 Test/metadata.csv',
-                     '/data/output/test/19_f2.conv3d.predicted_tracklet.xml',
-                     '/data/output/test/predictions.p')
+    tf.app.run()
