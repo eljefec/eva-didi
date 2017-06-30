@@ -40,7 +40,7 @@ tf.app.flags.DEFINE_string(
     'bag_file', '', """ROS bag.""")
 # tf.app.flags.DEFINE_string('gpu', '0', """gpu id.""")
 tf.app.flags.DEFINE_string(
-    'do', 'video', """[video, tracker].""")
+    'do', 'video', """[video, tracker, print].""")
 
 def generate_obstacle_detections(bag_file, mc, skip_null = True):
   """Detect image."""
@@ -161,6 +161,13 @@ class Detector:
 
       print('Frame: {}, Car Boxes: {}, Ped Boxes: {} Tracked Cars: {}, Tracked Peds: {}'.format(frame_idx, len(car_boxes), len(ped_boxes), len(car_tracker.vehicles), len(ped_tracker.vehicles)))
 
+  def print_detections(self, bag_file):
+    generator = generate_obstacle_detections(bag_file, self.mc)
+    for im, boxes, probs, classes in generator:
+      print('boxes', boxes)
+      print('probs', probs)
+      print('classes', classes)
+
 def process_bag(bag_file):
   # Load model config
   if FLAGS.demo_net == 'squeezeDet':
@@ -185,6 +192,9 @@ def process_bag(bag_file):
   elif FLAGS.do == 'tracker':
     print('Trying tracker')
     detector.try_tracker(bag_file)
+  elif FLAGS.do == 'print':
+    print('Print detections')
+    detector.print_detections(bag_file)
   else:
     print('Nothing to do.')
 
