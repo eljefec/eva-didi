@@ -39,17 +39,11 @@ tf.app.flags.DEFINE_string(
 tf.app.flags.DEFINE_string(
     'bag_file', '', """ROS bag.""")
 # tf.app.flags.DEFINE_string('gpu', '0', """gpu id.""")
-tf.app.flags.DEFINE_boolean('make_video', True, """Whether to make video.""")
+tf.app.flags.DEFINE_string(
+    'do', 'video', """[video, tracker].""")
 
-
-def predict_tracklet(bag_file, make_video):
+def generate_obstacle_detections(bag_file, mc, skip_null = True):
   """Detect image."""
-
-  cls2clr = {
-      'car': (255, 191, 0),
-      'cyclist': (0, 191, 255),
-      'pedestrian':(255, 0, 191)
-  }
 
   generator = ns.generate_numpystream(bag_file, tracklet_file = None)
 
@@ -58,46 +52,24 @@ def predict_tracklet(bag_file, make_video):
       'Selected nueral net architecture not supported: {}'.format(FLAGS.demo_net)
 
   with tf.Graph().as_default():
-    # Load model
     if FLAGS.demo_net == 'squeezeDet':
-      mc = kitti_squeezeDet_config()
-      mc.BATCH_SIZE = 1
-      # model parameters will be restored from checkpoint
-      mc.LOAD_PRETRAINED_MODEL = False
       model = SqueezeDet(mc, FLAGS.gpu)
     elif FLAGS.demo_net == 'squeezeDet+':
-      mc = kitti_squeezeDetPlus_config()
-      mc.BATCH_SIZE = 1
-      mc.LOAD_PRETRAINED_MODEL = False
       model = SqueezeDetPlus(mc, FLAGS.gpu)
     elif FLAGS.demo_net == 'didi':
-      mc = didi_squeezeDet_config()
-      mc.BATCH_SIZE = 1
-      mc.LOAD_PRETRAINED_MODEL = False
       model = SqueezeDet(mc, FLAGS.gpu)
 
     saver = tf.train.Saver(model.model_params)
 
-    car_tracker = track.Tracker(img_shape = (mc.IMAGE_WIDTH, mc.IMAGE_HEIGHT),
-                                heatmap_window_size = 5,
-                                heatmap_threshold_per_frame = 0.5,
-                                vehicle_window_size = 5)
-
-    ped_tracker = track.Tracker(img_shape = (mc.IMAGE_WIDTH, mc.IMAGE_HEIGHT),
-                                heatmap_window_size = 5,
-                                heatmap_threshold_per_frame = 0.5,
-                                vehicle_window_size = 5)
-
-    if make_video:
-      video_maker = video.VideoMaker(FLAGS.out_dir)
-    frame_idx = 0
-
     with tf.Session(config=tf.ConfigProto(allow_soft_placement=True)) as sess:
       saver.restore(sess, FLAGS.checkpoint)
 
-      # for f in glob.iglob(FLAGS.input_path):
+      im = None
+      final_boxes = None
+      final_probs = None
+      final_class = None
+
       for numpydata in generator:
-        frame_idx += 1
         lidar = numpydata.lidar
         if lidar is not None:
           lidar = ld.lidar_to_birdseye(lidar)
@@ -122,51 +94,113 @@ def predict_tracklet(bag_file, make_video):
           final_probs = [final_probs[idx] for idx in keep_idx]
           final_class = [final_class[idx] for idx in keep_idx]
 
-          if make_video:
-            train._draw_box(
-                im, final_boxes,
-                [mc.CLASS_NAMES[idx]+': (%.2f)'% prob \
-                    for idx, prob in zip(final_class, final_probs)],
-                cdict=cls2clr,
-            )
-            video_maker.add_image(im)
+          if skip_null:
+            yield im, final_boxes, final_probs, final_class
+        if not skip_null:
+          yield im, final_boxes, final_probs, final_class
 
-          car_boxes = []
-          car_probs = []
-          ped_boxes = []
-          ped_probs = []
+class Detector:
+  def __init__(self, mc):
+    self.mc = mc
 
-          for box, prob, class_idx in zip(final_boxes, final_probs, final_class):
-            box = utils.util.bbox_transform(box)
-            if class_idx == 0:
-              car_boxes.append(box)
-              car_probs.append(prob)
-            elif class_idx == 1:
-              ped_boxes.append(box)
-              ped_probs.append(prob)
+  def make_detection_video(self, bag_file):
+    cls2clr = {
+        'car': (255, 191, 0),
+        'cyclist': (0, 191, 255),
+        'pedestrian':(255, 0, 191)
+    }
 
-          car_tracker.track(car_boxes, car_probs)
-          ped_tracker.track(ped_boxes, ped_probs)
+    video_maker = video.VideoMaker(FLAGS.out_dir)
+    generator = generate_obstacle_detections(bag_file, self.mc)
 
-          print('Frame: {}, Car Boxes: {}, Ped Boxes: {} Tracked Cars: {}, Tracked Peds: {}'.format(frame_idx, len(car_boxes), len(ped_boxes), len(car_tracker.vehicles), len(ped_tracker.vehicles)))
+    for im, boxes, probs, classes in generator:
+      train._draw_box(
+          im, boxes,
+          [self.mc.CLASS_NAMES[idx]+': (%.2f)'% prob \
+              for idx, prob in zip(classes, probs)],
+          cdict=cls2clr,
+      )
+      video_maker.add_image(im)
 
-  if make_video:
     video_filename = os.path.basename(bag_file) + '.mp4'
     video_maker.make_video(video_filename)
+
+  def try_tracker(self, bag_file):
+    car_tracker = track.Tracker(img_shape = (self.mc.IMAGE_WIDTH, self.mc.IMAGE_HEIGHT),
+                                  heatmap_window_size = 5,
+                                  heatmap_threshold_per_frame = 0.5,
+                                  vehicle_window_size = 5)
+
+    ped_tracker = track.Tracker(img_shape = (self.mc.IMAGE_WIDTH, self.mc.IMAGE_HEIGHT),
+                                  heatmap_window_size = 5,
+                                  heatmap_threshold_per_frame = 0.5,
+                                  vehicle_window_size = 5)
+
+    frame_idx = 0
+
+    generator = generate_obstacle_detections(bag_file, self.mc)
+    for im, boxes, probs, classes in generator:
+      frame_idx += 1
+
+      car_boxes = []
+      car_probs = []
+      ped_boxes = []
+      ped_probs = []
+
+      for box, prob, class_idx in zip(boxes, probs, classes):
+        box = utils.util.bbox_transform(box)
+        if class_idx == 0:
+          car_boxes.append(box)
+          car_probs.append(prob)
+        elif class_idx == 1:
+          ped_boxes.append(box)
+          ped_probs.append(prob)
+
+      car_tracker.track(car_boxes, car_probs)
+      ped_tracker.track(ped_boxes, ped_probs)
+
+      print('Frame: {}, Car Boxes: {}, Ped Boxes: {} Tracked Cars: {}, Tracked Peds: {}'.format(frame_idx, len(car_boxes), len(ped_boxes), len(car_tracker.vehicles), len(ped_tracker.vehicles)))
+
+def process_bag(bag_file):
+  # Load model config
+  if FLAGS.demo_net == 'squeezeDet':
+    mc = kitti_squeezeDet_config()
+    mc.BATCH_SIZE = 1
+    # model parameters will be restored from checkpoint
+    mc.LOAD_PRETRAINED_MODEL = False
+  elif FLAGS.demo_net == 'squeezeDet+':
+    mc = kitti_squeezeDetPlus_config()
+    mc.BATCH_SIZE = 1
+    mc.LOAD_PRETRAINED_MODEL = False
+  elif FLAGS.demo_net == 'didi':
+    mc = didi_squeezeDet_config()
+    mc.BATCH_SIZE = 1
+    mc.LOAD_PRETRAINED_MODEL = False
+
+  detector = Detector(mc)
+
+  if FLAGS.do == 'video':
+    print('Making video')
+    detector.make_detection_video(bag_file)
+  elif FLAGS.do == 'tracker':
+    print('Trying tracker')
+    detector.try_tracker(bag_file)
+  else:
+    print('Nothing to do.')
 
 def main(argv=None):
   if not tf.gfile.Exists(FLAGS.out_dir):
     tf.gfile.MakeDirs(FLAGS.out_dir)
   if FLAGS.bag_file:
     print('Processing single bag. {}'.format(FLAGS.bag_file))
-    predict_tracklet(FLAGS.bag_file, FLAGS.make_video)
+    process_bag(FLAGS.bag_file)
   elif FLAGS.bag_dir:
     print('Processing bag folder. {}'.format(FLAGS.bag_dir))
     bags = bu.find_bags(FLAGS.bag_dir)
     for bag in bags:
-      predict_tracklet(bag, FLAGS.make_video)
+      process_bag(bag)
   else:
-    print('Nothing to do.')
+    print('Neither bag_file nor bag_dir specified.')
 
 if __name__ == '__main__':
     tf.app.run()
