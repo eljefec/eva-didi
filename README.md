@@ -53,3 +53,9 @@ for datum in stream.generate():
 - `def generate_sensormsgs(bag_file)`
 - Process images and lidar from a ROS bag
 - Return image and lidar messages in sequence
+#### predict_tracklet.py
+- `def predict_tracklet(bag_file)`
+- Read lidar messages from bag and detect obstacles as bounding boxes
+#### track.py
+- `class Tracker`
+- Track bounding boxes over time
