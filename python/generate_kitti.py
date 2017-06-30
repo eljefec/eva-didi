@@ -47,17 +47,10 @@ def generate_kitti(bag_tracklets, imagedir, labeldir, output_bbox):
         lidar = numpydata.lidar
         pose = numpydata.pose
         if lidar is not None:
-            print(pose.tx, pose.ty, pose.tz)
-
             bbox = bbox_points(pose)
-
-            print(bbox)
 
             birdseye = ld.lidar_to_birdseye(lidar)
             birdseye_bbox = ld.lidar_to_birdseye(bbox, return_points = True)
-
-            print('birdseye_bbox.shape', birdseye_bbox.shape)
-            print('birdseye_bbox', birdseye_bbox)
 
             if birdseye_bbox.shape[0] == 2 and birdseye_bbox.shape[1] == 2:
                 if output_bbox:
@@ -75,9 +68,9 @@ def generate_kitti(bag_tracklets, imagedir, labeldir, output_bbox):
                 id += 1
 
 if __name__ == '__main__':
-    bagdir = '/data/bags/didi-round2/release/car/training/suburu_driving_past_it'
+    bagdir = '/data/bags/'
     bag_tracklets = multibag.find_bag_tracklets(bagdir, '/data/tracklets')
     generate_kitti(bag_tracklets,
                    '/data/KITTI/training/image',
                    '/data/KITTI/training/label',
-                   output_bbox = True)
+                   output_bbox = False)
