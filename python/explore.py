@@ -2,6 +2,7 @@ import framestream
 import matplotlib.pyplot as plt
 import multibag
 import numpy as np
+import numpystream
 import os
 import pickle
 
@@ -41,6 +42,18 @@ class PoseHistograms:
         self.histograms_by_bag = histograms_by_bag
         self.histograms_all = histograms_all
 
+def reflectance_histogram(bag_tracklets):
+    for bt in bag_tracklets:
+        print(bt.bag)
+
+        generator = numpystream.generate_numpystream(bt.bag, bt.tracklet)
+        for numpydata in generator:
+            lidar = numpydata.lidar
+            if lidar is not None:
+                hist = np.histogram(lidar[:, 3])
+                print('reflectance hist', hist)
+                return
+
 def make_histograms(bag_tracklets, show):
     histograms_by_bag = dict()
     all_poses = []
@@ -52,8 +65,10 @@ def make_histograms(bag_tracklets, show):
         print(bt.bag)
         poses = []
 
-        generator = framestream.generate_trainmsgs(bt.bag, bt.tracklet)
-        for sample in generator:
+        reflectances = []
+
+        generator = numpystream.generate_numpystream(bt.bag, bt.tracklet)
+        for numpydata in generator:
             poses.append(sample.pose)
 
         histograms_by_bag[bt.bag] = make_and_save_histograms(bt.bag, poses, dims, show)
@@ -92,8 +107,10 @@ if __name__ == '__main__':
     if not os.path.exists(FIG_DIR):
         os.makedirs(FIG_DIR)
 
+    bagdir = '/data/bags/didi-round2/release/car/training/nissan_driving_past_it'
     # bagdir = '/data/bags/'
-    # bt = multibag.find_bag_tracklets(bagdir, '/data/tracklets/')
+    bt = multibag.find_bag_tracklets(bagdir, '/data/tracklets/')
+    reflectance_histogram(bt)
     # make_histograms(bt, show = False)
 
     print_hist()
