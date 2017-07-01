@@ -15,13 +15,10 @@ class ImageMsg:
         img = cv2.cvtColor(img, cv2.COLOR_BAYER_GR2BGR)
         self.bgr = img
 
-def save_np_image(nparr, fullpath, bbox = None):
-    im = Image.fromarray(nparr)
+def save_np_image(npimg, fullpath, bbox = None):
     if bbox is not None:
-        draw = ImageDraw.Draw(im)
-        draw.rectangle(bbox, outline=128)
-        del draw
-    im.save(fullpath)
+        cv2.rectangle(npimg, bbox[0], bbox[1])
+    cv2.imwrite(fullpath, npimg)
 
 def read_images(bag_file):
     image_msgs = []

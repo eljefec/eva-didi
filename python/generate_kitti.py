@@ -34,7 +34,7 @@ def write_kitti_annotation(pose, birdseye_bbox, filename):
         for i in range(6):
             write_field(f, '0.0')
 
-def generate_kitti(bag_tracklets, imagedir, labeldir, output_bbox):
+def generate_kitti(bag_tracklets, imagedir, labeldir, output_bbox, slice_config):
     if not os.path.exists(imagedir):
         os.makedirs(imagedir)
     if not os.path.exists(labeldir):
@@ -49,8 +49,8 @@ def generate_kitti(bag_tracklets, imagedir, labeldir, output_bbox):
         if lidar is not None:
             bbox = bbox_points(pose)
 
-            birdseye = ld.lidar_to_birdseye(lidar)
-            birdseye_bbox = ld.lidar_to_birdseye(bbox, return_points = True)
+            birdseye = ld.lidar_to_birdseye(lidar, slice_config)
+            birdseye_bbox = ld.lidar_to_birdseye(bbox, slice_config, return_points = True)
 
             if birdseye_bbox.shape[0] == 2 and birdseye_bbox.shape[1] == 2:
                 if output_bbox:
@@ -70,7 +70,12 @@ def generate_kitti(bag_tracklets, imagedir, labeldir, output_bbox):
 if __name__ == '__main__':
     bagdir = '/data/bags/'
     bag_tracklets = multibag.find_bag_tracklets(bagdir, '/data/tracklets')
+    slice_config = ld.slice_config()
+    slice_config.HEIGHT_RANGE=(-1.50, 0.25)
+    slice_config.SIDE_RANGE=(-40, 40)
+    slice_config.FWD_RANGE=(-40, 40)
     generate_kitti(bag_tracklets,
-                   '/data/KITTI/training/image',
-                   '/data/KITTI/training/label',
-                   output_bbox = False)
+                   '/data/KITTI/training_rz/image',
+                   '/data/KITTI/training_rz/label',
+                   output_bbox = False,
+                   slice_config = slice_config)
