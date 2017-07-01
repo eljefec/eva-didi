@@ -9,6 +9,7 @@ import time
 import transform_points as tp
 from velodyne_msgs.msg import VelodyneScan
 from sensor_msgs.msg import PointCloud2
+from easydict import EasyDict as edict
 
 import matplotlib
 # Work around error when using matplotlib through ssh: 'Invalid DISPLAY variable'.
@@ -24,32 +25,37 @@ def lidar_to_panorama(lidar):
                                         d_range = (0, 100),
                                         y_fudge = 3)
 
-HEIGHT_RANGE=(-1.25, -0.25)
-SIDE_RANGE=(-30, 30)
-FWD_RANGE=(-30, 30)
+def slice_config():
+    cfg = edict()
 
-def lidar_to_slices(lidar):
+    cfg.HEIGHT_RANGE=(-1.25, -0.25)
+    cfg.SIDE_RANGE=(-30, 30)
+    cfg.FWD_RANGE=(-30, 30)
+
+    return cfg
+
+def lidar_to_slices(lidar, sc):
     return tp.birds_eye_height_slices(lidar,
                                         n_slices=4,
-                                        height_range=HEIGHT_RANGE,
-                                        side_range=SIDE_RANGE,
-                                        fwd_range=FWD_RANGE,
+                                        height_range = sc.HEIGHT_RANGE,
+                                        side_range = sc.SIDE_RANGE,
+                                        fwd_range = sc.FWD_RANGE,
                                         res=0.1)
 
-def lidar_to_birdseye(lidar, return_points = False):
+def lidar_to_birdseye(lidar, sc, return_points = False):
     return tp.point_cloud_2_birdseye(lidar,
                                      res = 0.1,
-                                     side_range = SIDE_RANGE,
-                                     fwd_range = FWD_RANGE,
-                                     height_range = HEIGHT_RANGE,
+                                     side_range = sc.SIDE_RANGE,
+                                     fwd_range = sc.FWD_RANGE,
+                                     height_range = sc.HEIGHT_RANGE,
                                      return_points = return_points)
 
-def birdseye_to_global(box):
+def birdseye_to_global(box, sc):
     return tp.birdseye_to_global(box[0],
                                  box[1],
                                  res = 0.1,
-                                 side_range = SIDE_RANGE,
-                                 fwd_range = FWD_RANGE)
+                                 side_range = sc.SIDE_RANGE,
+                                 fwd_range = sc.FWD_RANGE)
 
 class PointCloudMsg:
     def __init__(self, msg):
@@ -120,7 +126,7 @@ class PointCloudConverter:
 
             imlib.save_np_image(panorama, os.path.join(self.savepath, 'panorama/' + str(msg.header.seq) + '.png'))
 
-            slices = lidar_to_slices(lidar)
+            slices = lidar_to_slices(lidar, slice_config())
 
             # VISUALISE THE SEPARATE LAYERS IN MATPLOTLIB
             dpi = 200       # Image resolution
@@ -224,7 +230,7 @@ class MessagePickler:
             with open('panorama.p', 'wb') as f:
                 pickle.dump(panorama, f)
 
-            slices = lidar_to_slices(lidar)
+            slices = lidar_to_slices(lidar, slice_config())
 
             with open('slices.p', 'wb') as f:
                 pickle.dump(slices, f)

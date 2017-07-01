@@ -75,7 +75,7 @@ def generate_obstacle_detections(bag_file, mc, skip_null = True):
       for numpydata in generator:
         lidar = numpydata.lidar
         if lidar is not None:
-          lidar = ld.lidar_to_birdseye(lidar)
+          lidar = ld.lidar_to_birdseye(lidar, ld.slice_config())
 
           im = cv2.resize(lidar, (mc.IMAGE_WIDTH, mc.IMAGE_HEIGHT))
           im = cv2.cvtColor(im, cv2.COLOR_GRAY2BGR)
@@ -204,7 +204,7 @@ class Detector:
           and probs is not None and classes is not None):
         # Assume decreasing order of probability
         for box, prob, class_idx in zip(boxes, probs, classes):
-          global_box = ld.birdseye_to_global(box)
+          global_box = ld.birdseye_to_global(box, ld.slice_config())
           pose = make_pose(global_box[0], global_box[1])
 
           if not car_found and class_idx == CAR_CLASS:

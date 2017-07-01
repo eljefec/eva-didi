@@ -225,14 +225,15 @@ def point_cloud_2_birdseye(points,
     # Note left side is positive y axis in LIDAR coordinates
     f_filt = np.logical_and((x_points > fwd_range[0]), (x_points < fwd_range[1]))
     s_filt = np.logical_and((y_points > -side_range[1]), (y_points < -side_range[0]))
-    filter = np.logical_and(f_filt, s_filt)
+    h_filt = np.logical_and((z_points > height_range[0]), (z_points < height_range[1]))
+    f_and_s = np.logical_and(f_filt, s_filt)
+    filter = np.logical_and(h_filt, f_and_s)
     indices = np.argwhere(filter).flatten()
 
     # KEEPERS
     x_points = x_points[indices]
     y_points = y_points[indices]
     z_points = z_points[indices]
-
     # CONVERT TO PIXEL POSITION VALUES - Based on resolution
     x_img = (-y_points / res).astype(np.int32)  # x axis is -y in LIDAR
     y_img = (-x_points / res).astype(np.int32)  # y axis is -x in LIDAR
@@ -245,23 +246,19 @@ def point_cloud_2_birdseye(points,
     if return_points:
         return np.stack((x_img, y_img), axis=-1)
 
-    # CLIP HEIGHT VALUES - to between min and max heights
-    pixel_values = np.clip(a=z_points,
-                           a_min=height_range[0],
-                           a_max=height_range[1])
-
-    # RESCALE THE HEIGHT VALUES - to be between the range 0-255
-    pixel_values = scale_to_255(pixel_values,
-                                min=height_range[0],
-                                max=height_range[1])
+    r_points = points[:, 3]
+    r_points = r_points[indices]
 
     # INITIALIZE EMPTY ARRAY - of the dimensions we want
     x_max = 1 + int((side_range[1] - side_range[0]) / res)
     y_max = 1 + int((fwd_range[1] - fwd_range[0]) / res)
-    im = np.zeros([y_max, x_max], dtype=np.uint8)
+    im = np.zeros([y_max, x_max, 3], dtype=np.uint8)
 
     # FILL PIXEL VALUES IN IMAGE ARRAY
-    im[y_img, x_img] = pixel_values
+    im[y_img, x_img, 1] = scale_to_255(r_points, min=0, max=60)
+    im[y_img, x_img, 2] = scale_to_255(z_points,
+                                       min=height_range[0],
+                                       max=height_range[1])
 
     return im
 

@@ -33,7 +33,7 @@ def generate_traindata(bag_file, tracklet_file):
             points = pc2.read_points(frame.lidar)
             points = np.array(list(points))
             lidar_panorama = lidar.lidar_to_panorama(points)
-            lidar_slices = lidar.lidar_to_slices(points)
+            lidar_slices = lidar.lidar_to_slices(points, lidar.slice_config())
 
         imagemsg = image.ImageMsg(frame.image)
 
@@ -60,7 +60,7 @@ class TrainDataStream:
             points = pc2.read_points(msg.lidar)
             points = np.array(list(points))
             lidar_panorama = lidar.lidar_to_panorama(points)
-            lidar_slices = lidar.lidar_to_slices(points)
+            lidar_slices = lidar.lidar_to_slices(points, lidar.slice_config())
 
         imagemsg = image.ImageMsg(msg.image)
 
