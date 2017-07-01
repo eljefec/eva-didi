@@ -44,6 +44,13 @@ def lidar_to_birdseye(lidar, return_points = False):
                                      height_range = HEIGHT_RANGE,
                                      return_points = return_points)
 
+def birdseye_to_global(box):
+    return tp.birdseye_to_global(box[0],
+                                 box[1],
+                                 res = 0.1,
+                                 side_range = SIDE_RANGE,
+                                 fwd_range = FWD_RANGE)
+
 class PointCloudMsg:
     def __init__(self, msg):
         lidar = pc2.read_points(msg)
