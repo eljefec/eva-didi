@@ -42,6 +42,8 @@ tf.app.flags.DEFINE_string(
 # tf.app.flags.DEFINE_string('gpu', '0', """gpu id.""")
 tf.app.flags.DEFINE_string(
     'do', 'video', """[video, tracker, print, tracklet].""")
+tf.app.flags.DEFINE_boolean('include_car', False, """Whether to include car in tracklet.""")
+tf.app.flags.DEFINE_boolean('include_ped', False, """Whether to include pedestrian in tracklet.""")
 
 def generate_obstacle_detections(bag_file, mc, skip_null = True):
   """Detect image."""
@@ -174,7 +176,7 @@ class Detector:
       print('probs', probs)
       print('classes', classes)
 
-  def gen_tracklet(self, bag_file):
+  def gen_tracklet(self, bag_file, include_car, include_ped):
 
     def make_pose(x, y):
       # Estimate tz from histogram.
@@ -191,8 +193,8 @@ class Detector:
     prev_ped_pose = make_pose(0, 0)
 
     # l, w, h from histogram
-    car_tracklet = generate_tracklet.Tracklet(object_type=self.mc.CLASS_NAMES[0], l=4.3, w=1.7, h=1.7, first_frame=0)
-    ped_tracklet = generate_tracklet.Tracklet(object_type=self.mc.CLASS_NAMES[1], l=0.8, w=0.8, h=1.7, first_frame=0)
+    car_tracklet = generate_tracklet.Tracklet(object_type='Car', l=4.3, w=1.7, h=1.7, first_frame=0)
+    ped_tracklet = generate_tracklet.Tracklet(object_type='Pedestrian', l=0.8, w=0.8, h=1.7, first_frame=0)
 
     generator = generate_obstacle_detections(bag_file, self.mc)
     for im, boxes, probs, classes in generator:
@@ -223,8 +225,10 @@ class Detector:
         ped_tracklet.poses.append(prev_ped_pose)
 
     tracklet_collection = generate_tracklet.TrackletCollection()
-    tracklet_collection.tracklets.append(car_tracklet)
-    tracklet_collection.tracklets.append(ped_tracklet)
+    if include_car:
+      tracklet_collection.tracklets.append(car_tracklet)
+    if include_ped:
+      tracklet_collection.tracklets.append(ped_tracklet)
 
     tracklet_file = os.path.join(FLAGS.out_dir, get_filename(bag_file) + '.xml')
 
@@ -259,7 +263,12 @@ def process_bag(bag_file):
     detector.print_detections(bag_file)
   elif FLAGS.do == 'tracklet':
     print('Generate tracklet')
-    detector.gen_tracklet(bag_file)
+    print('Include car: ', FLAGS.include_car)
+    print('Include ped: ', FLAGS.include_ped)
+    if not FLAGS.include_car and not FLAGS.include_ped:
+      print('Must include one of the obstacle types.')
+      exit()
+    detector.gen_tracklet(bag_file, FLAGS.include_car, FLAGS.include_ped)
   else:
     print('Nothing to do.')
 
