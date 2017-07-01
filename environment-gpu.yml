@@ -30,3 +30,4 @@ dependencies:
         - mem_top
         - easydict==1.6
         - joblib==0.10.3
+        - shapely
