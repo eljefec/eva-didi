@@ -265,6 +265,13 @@ def point_cloud_2_birdseye(points,
 
     return im
 
+def birdseye_to_global(x_img, y_img, res, side_range, fwd_range):
+    x_img += int(np.floor(side_range[0] / res))
+    y_img -= int(np.ceil(fwd_range[1] / res))
+    x_point = (-y_img * res).astype(np.float32)
+    y_point = (-x_img * res).astype(np.float32)
+    return [x_point, y_point]
+
 # ==============================================================================
 #                                                        POINT_CLOUD_TO_PANORAMA
 # ==============================================================================

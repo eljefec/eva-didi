@@ -14,6 +14,7 @@ import moviepy.editor as mpy
 import numpy as np
 import tensorflow as tf
 
+import generate_tracklet
 import lidar as ld
 import my_bag_utils as bu
 import numpystream as ns
@@ -40,7 +41,7 @@ tf.app.flags.DEFINE_string(
     'bag_file', '', """ROS bag.""")
 # tf.app.flags.DEFINE_string('gpu', '0', """gpu id.""")
 tf.app.flags.DEFINE_string(
-    'do', 'video', """[video, tracker, print].""")
+    'do', 'video', """[video, tracker, print, tracklet].""")
 
 def generate_obstacle_detections(bag_file, mc, skip_null = True):
   """Detect image."""
@@ -168,6 +169,48 @@ class Detector:
       print('probs', probs)
       print('classes', classes)
 
+  def gen_tracklet(self, bag_file):
+
+    def make_pose(x, y):
+      # Estimate tz from histogram.
+      return {'tx': x,
+              'ty': y,
+              'tz': -0.9,
+              'rx': 0,
+              'ry': 0,
+              'rz': 0}
+
+    CAR_CLASS = 0
+    prev_pose = make_pose(0, 0)
+
+    # l, w, h from histogram
+    car_tracklet = generate_tracklet.Tracklet(object_type=self.mc.CLASS_NAMES[0], l=4.3, w=1.7, h=1.7, first_frame=0)
+
+    generator = generate_obstacle_detections(bag_file, self.mc)
+    for im, boxes, probs, classes in generator:
+      added = False
+      if (im is not None and boxes is not None
+          and probs is not None and classes is not None):
+        for box, prob, class_idx in zip(boxes, probs, classes):
+          if class_idx == CAR_CLASS:
+            # box is in center form (cx, cy, w, h)
+            global_box = ld.birdseye_to_global(box)
+            pose = make_pose(global_box[0], global_box[1])
+
+            car_tracklet.poses.append(pose)
+            prev_pose = pose
+            added = True
+            break
+      if not added:
+        car_tracklet.poses.append(prev_pose)
+
+    tracklet_collection = generate_tracklet.TrackletCollection()
+    tracklet_collection.tracklets.append(car_tracklet)
+
+    tracklet_file = os.path.join(FLAGS.out_dir, os.path.basename(bag_file) + '.xml')
+
+    tracklet_collection.write_xml(tracklet_file)
+
 def process_bag(bag_file):
   # Load model config
   if FLAGS.demo_net == 'squeezeDet':
@@ -195,6 +238,9 @@ def process_bag(bag_file):
   elif FLAGS.do == 'print':
     print('Print detections')
     detector.print_detections(bag_file)
+  elif FLAGS.do == 'tracklet':
+    print('Generate tracklet')
+    detector.gen_tracklet(bag_file)
   else:
     print('Nothing to do.')
 
