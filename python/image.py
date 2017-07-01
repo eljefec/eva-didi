@@ -17,7 +17,7 @@ class ImageMsg:
 
 def save_np_image(npimg, fullpath, bbox = None):
     if bbox is not None:
-        cv2.rectangle(npimg, bbox[0], bbox[1])
+        cv2.rectangle(npimg, bbox[0], bbox[1], color = (255, 0, 0))
     cv2.imwrite(fullpath, npimg)
 
 def read_images(bag_file):

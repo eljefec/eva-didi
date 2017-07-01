@@ -1,6 +1,7 @@
 import numpy as np
 import rospy
 import sensor
+import evaluate_tracklets
 import parse_tracklet
 
 class Pose:
@@ -29,8 +30,8 @@ class Pose:
                         dtype=float)
 
 class TrainMsg:
-    def __init__(self, pose, image, lidar):
-        self.pose = pose
+    def __init__(self, obs, image, lidar):
+        self.obs = obs
         self.image = image
         self.lidar = lidar
 
@@ -63,31 +64,11 @@ class OrderChecker:
 
         self.prev_sample = sample
 
-# tracklet_file is allowed to be None
-def generate_trainmsgs(bag_file, tracklet_file):
+def generate_syncedmsgs(msg_generator):
     prev_image = None
     prev_lidar = None
-    tracklet = None
-    frame = 0
-    order_checker = OrderChecker(ordercheck = True)
-
-    if tracklet_file is not None:
-        tracklets = parse_tracklet.parse_xml(tracklet_file)
-        assert(1 == len(tracklets))
-
-        tracklet = tracklets[0]
-        assert(0 == tracklet.first_frame)
-
-    msg_generator = sensor.generate_sensormsgs(bag_file)
-
-    while tracklet is None or frame < tracklet.num_frames:
-        if tracklet is None:
-            pose = None
-        else:
-            pose = Pose(tracklet.object_type, tracklet.size, tracklet.trans[frame], tracklet.rots[frame])
-
-        frame += 1
-
+    while True:
+        # Iterate to next camera message.
         msg = None
         while msg is None or msg.header is None or msg.header.frame_id != 'camera':
             # Allow msg_generator to raise StopIteration
@@ -98,12 +79,35 @@ def generate_trainmsgs(bag_file, tracklet_file):
                     prev_image = msg
                 elif msg.header.frame_id == 'velodyne':
                     prev_lidar = msg
+        yield prev_image, prev_lidar
 
-        sample = TrainMsg(pose, prev_image, prev_lidar)
+# tracklet_file is allowed to be None
+def generate_trainmsgs(bag_file, tracklet_file):
+    obs_generator = None
+    frame = 0
+    order_checker = OrderChecker(ordercheck = True)
 
-        order_checker.check_sample(sample)
+    if tracklet_file is not None:
+        tracklets = parse_tracklet.parse_xml(tracklet_file)
+        assert(1 == len(tracklets))
 
-        yield sample
+        tracklet = tracklets[0]
+        assert(0 == tracklet.first_frame)
+        obs_generator = evaluate_tracklets.generate_obstacles(tracklets)
+
+    msg_generator = sensor.generate_sensormsgs(bag_file)
+    synced_generator = generate_syncedmsgs(msg_generator)
+
+    if obs_generator is None:
+        for img, lidar in synced_generator:
+            sample = TrainMsg(None, img, lidar)
+            order_checker.check_sample(sample)
+            yield sample
+    else:
+        for obs, (img, lidar) in zip(obs_generator, synced_generator):
+            sample = TrainMsg(obs, img, lidar)
+            order_checker.check_sample(sample)
+            yield sample
 
 class FrameStream:
     def __init__(self):
@@ -173,7 +177,7 @@ class FrameStream:
 
 if __name__ == '__main__':
     samples = []
-    generator = generate_trainmsgs('/data/didi/didi-round1/Didi-Release-2/Data/1/3.bag', '/old_data/output/tracklet/1/3/tracklet_labels.xml')
+    generator = generate_trainmsgs('/data/bags/didi-round1/Didi-Release-2/Data/1/3.bag', '/data/tracklets/didi-round1_Didi-Release-2_Data_1-3/tracklet_labels.xml')
 
     for sample in generator:
         samples.append(sample)
