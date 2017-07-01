@@ -83,7 +83,10 @@ def print_hist():
     with open(os.path.join(FIG_DIR, 'posehist.p'), 'rb') as f:
         pose_histograms = pickle.load(f)
 
-    print pose_histograms.histograms_all
+    dim_names = ['h', 'w', 'l', 'tx', 'ty', 'tz', 'rx', 'ry', 'rz']
+    for i in range(len(dim_names)):
+        print('Dimension: ', dim_names[i])
+        print pose_histograms.histograms_all[i]
 
 if __name__ == '__main__':
     if not os.path.exists(FIG_DIR):
