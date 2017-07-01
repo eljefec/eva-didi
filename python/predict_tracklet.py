@@ -100,6 +100,11 @@ def generate_obstacle_detections(bag_file, mc, skip_null = True):
         if not skip_null:
           yield im, final_boxes, final_probs, final_class
 
+def get_filename(bag_file):
+  base = os.path.basename(bag_file)
+  split = os.path.splitext(base)
+  return split[0]
+
 class Detector:
   def __init__(self, mc):
     self.mc = mc
@@ -123,7 +128,7 @@ class Detector:
       )
       video_maker.add_image(im)
 
-    video_filename = os.path.basename(bag_file) + '.mp4'
+    video_filename = get_filename(bag_file) + '.mp4'
     video_maker.make_video(video_filename)
 
   def try_tracker(self, bag_file):
@@ -181,33 +186,47 @@ class Detector:
               'rz': 0}
 
     CAR_CLASS = 0
-    prev_pose = make_pose(0, 0)
+    PED_CLASS = 1
+    prev_car_pose = make_pose(0, 0)
+    prev_ped_pose = make_pose(0, 0)
 
     # l, w, h from histogram
     car_tracklet = generate_tracklet.Tracklet(object_type=self.mc.CLASS_NAMES[0], l=4.3, w=1.7, h=1.7, first_frame=0)
+    ped_tracklet = generate_tracklet.Tracklet(object_type=self.mc.CLASS_NAMES[1], l=0.8, w=0.8, h=1.7, first_frame=0)
 
     generator = generate_obstacle_detections(bag_file, self.mc)
     for im, boxes, probs, classes in generator:
-      added = False
+      car_found = False
+      ped_found = False
       if (im is not None and boxes is not None
           and probs is not None and classes is not None):
+        # Assume decreasing order of probability
         for box, prob, class_idx in zip(boxes, probs, classes):
-          if class_idx == CAR_CLASS:
-            # box is in center form (cx, cy, w, h)
-            global_box = ld.birdseye_to_global(box)
-            pose = make_pose(global_box[0], global_box[1])
+          global_box = ld.birdseye_to_global(box)
+          pose = make_pose(global_box[0], global_box[1])
 
+          if not car_found and class_idx == CAR_CLASS:
+            # box is in center form (cx, cy, w, h)
             car_tracklet.poses.append(pose)
-            prev_pose = pose
-            added = True
+            prev_car_pose = pose
+            car_found = True
+          if not ped_found and class_idx == PED_CLASS:
+            ped_tracklet.poses.append(pose)
+            prev_ped_pose = pose
+            ped_found = True
+
+          if car_found and ped_found:
             break
-      if not added:
-        car_tracklet.poses.append(prev_pose)
+      if not car_found:
+        car_tracklet.poses.append(prev_car_pose)
+      if not ped_found:
+        ped_tracklet.poses.append(prev_ped_pose)
 
     tracklet_collection = generate_tracklet.TrackletCollection()
     tracklet_collection.tracklets.append(car_tracklet)
+    tracklet_collection.tracklets.append(ped_tracklet)
 
-    tracklet_file = os.path.join(FLAGS.out_dir, os.path.basename(bag_file) + '.xml')
+    tracklet_file = os.path.join(FLAGS.out_dir, get_filename(bag_file) + '.xml')
 
     tracklet_collection.write_xml(tracklet_file)
 
