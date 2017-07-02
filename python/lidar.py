@@ -29,9 +29,9 @@ def slice_config():
     cfg = edict()
 
     cfg.RESOLUTION = 0.1
-    cfg.HEIGHT_RANGE=(-1.50, 0.25)
-    cfg.SIDE_RANGE=(-40, 40)
-    cfg.FWD_RANGE=(-40, 40)
+    cfg.HEIGHT_RANGE=(-1.25, 0.25)
+    cfg.SIDE_RANGE=(-32, 32)
+    cfg.FWD_RANGE=(-32, 32)
 
     return cfg
 
