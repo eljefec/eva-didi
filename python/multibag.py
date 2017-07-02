@@ -104,11 +104,10 @@ class MultiBagStream:
         self.fn_create_generator = fn_create_generator
 
         self.frame_count = None
-        self.bag_index = 0
 
     def count(self):
         if self.frame_count is None:
-            self.frame_count = count_image_messages(bag_tracklets)
+            self.frame_count = count_image_messages(self.bag_tracklets)
         return self.frame_count
 
     def generate(self, infinite):
