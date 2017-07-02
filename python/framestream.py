@@ -1,3 +1,4 @@
+import itertools
 import numpy as np
 import rospy
 import sensor
@@ -104,7 +105,7 @@ def generate_trainmsgs(bag_file, tracklet_file):
             order_checker.check_sample(sample)
             yield sample
     else:
-        for obs, (img, lidar) in zip(obs_generator, synced_generator):
+        for obs, (img, lidar) in itertools.izip(obs_generator, synced_generator):
             sample = TrainMsg(obs, img, lidar)
             order_checker.check_sample(sample)
             yield sample
@@ -181,7 +182,7 @@ if __name__ == '__main__':
 
     for sample in generator:
         samples.append(sample)
-        print('track: {0}'.format(sample.pose))
+        print('obs: {0}'.format(sample.obs))
         if sample.image is not None:
             print('image: {0}'.format(sample.image.header.stamp))
         if sample.lidar is not None:
