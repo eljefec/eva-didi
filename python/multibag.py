@@ -101,12 +101,14 @@ def shuffle(bag_tracklets, seed):
 class MultiBagStream:
     def __init__(self, bag_tracklets, fn_create_generator = traindata.generate_traindata):
         self.bag_tracklets = bag_tracklets
-        self.frame_count = count_image_messages(bag_tracklets)
         self.fn_create_generator = fn_create_generator
 
+        self.frame_count = None
         self.bag_index = 0
 
     def count(self):
+        if self.frame_count is None:
+            self.frame_count = count_image_messages(bag_tracklets)
         return self.frame_count
 
     def generate(self, infinite):
