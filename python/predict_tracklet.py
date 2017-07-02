@@ -14,6 +14,7 @@ import moviepy.editor as mpy
 import numpy as np
 import tensorflow as tf
 
+import crop_images as ci
 import generate_tracklet
 import lidar as ld
 import my_bag_utils as bu
@@ -29,7 +30,7 @@ import utils.util
 FLAGS = tf.app.flags.FLAGS
 
 tf.app.flags.DEFINE_string(
-    'checkpoint', '/home/eljefec/repo/squeezeDet/data/model_checkpoints/didi/model.ckpt-6000',
+    'checkpoint', '/home/eljefec/repo/squeezeDet/data/model_checkpoints/didi/model.ckpt-7000',
     """Path to the model parameter file.""")
 tf.app.flags.DEFINE_string(
     'bag_dir', '/data/bags/didi-round2/release/car/testing', """ROS bag folder""")
@@ -75,10 +76,11 @@ def generate_obstacle_detections(bag_file, mc, skip_null = True):
       for numpydata in generator:
         lidar = numpydata.lidar
         if lidar is not None:
-          lidar = ld.lidar_to_birdseye(lidar, ld.slice_config())
+          birdseye = ld.lidar_to_birdseye(lidar, ld.slice_config())
 
-          im = cv2.resize(lidar, (mc.IMAGE_WIDTH, mc.IMAGE_HEIGHT))
-          im = cv2.cvtColor(im, cv2.COLOR_GRAY2BGR)
+          im = ci.crop_image(birdseye,
+                             (mc.IMAGE_WIDTH + 1, mc.IMAGE_HEIGHT + 1, 3),
+                             (mc.IMAGE_WIDTH, mc.IMAGE_HEIGHT, 3))
           im = im.astype(np.float32, copy=False)
           input_image = im - mc.BGR_MEANS
 
