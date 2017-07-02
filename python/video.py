@@ -1,3 +1,4 @@
+import cv2
 import moviepy.editor as mpy
 import my_bag_utils as bu
 import os
@@ -10,7 +11,8 @@ class VideoMaker:
     self.frame_idx = 0
 
   def add_image(self, image):
-    self.images.append(image)
+    rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+    self.images.append(rgb)
     self.frame_idx += 1
     if self.frame_idx % 500 == 0:
       self._make_subclip()
