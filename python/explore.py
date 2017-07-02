@@ -107,10 +107,10 @@ if __name__ == '__main__':
     if not os.path.exists(FIG_DIR):
         os.makedirs(FIG_DIR)
 
-    bagdir = '/data/bags/didi-round2/release/car/training/nissan_driving_past_it'
+    # bagdir = '/data/bags/didi-round2/release/car/training/nissan_driving_past_it'
     # bagdir = '/data/bags/'
-    bt = multibag.find_bag_tracklets(bagdir, '/data/tracklets/')
-    reflectance_histogram(bt)
+    # bt = multibag.find_bag_tracklets(bagdir, '/data/tracklets/')
+    # reflectance_histogram(bt)
     # make_histograms(bt, show = False)
 
     print_hist()
