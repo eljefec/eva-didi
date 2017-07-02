@@ -29,9 +29,9 @@ def slice_config():
     cfg = edict()
 
     cfg.RESOLUTION = 0.1
-    cfg.HEIGHT_RANGE=(-1.25, -0.25)
-    cfg.SIDE_RANGE=(-30, 30)
-    cfg.FWD_RANGE=(-30, 30)
+    cfg.HEIGHT_RANGE=(-1.50, 0.25)
+    cfg.SIDE_RANGE=(-40, 40)
+    cfg.FWD_RANGE=(-40, 40)
 
     return cfg
 
@@ -43,13 +43,14 @@ def lidar_to_slices(lidar, sc):
                                         fwd_range = sc.FWD_RANGE,
                                         res = sc.RESOLUTION)
 
-def lidar_to_birdseye(lidar, sc, return_points = False):
+def lidar_to_birdseye(lidar, sc, return_points = False, center = (0,0)):
     return tp.point_cloud_2_birdseye(lidar,
                                      res = sc.RESOLUTION,
                                      side_range = sc.SIDE_RANGE,
                                      fwd_range = sc.FWD_RANGE,
                                      height_range = sc.HEIGHT_RANGE,
-                                     return_points = return_points)
+                                     return_points = return_points,
+                                     center = center)
 
 def birdseye_to_global(box, sc):
     return tp.birdseye_to_global(box[0],
