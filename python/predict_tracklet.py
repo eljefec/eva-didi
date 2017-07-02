@@ -30,19 +30,19 @@ import utils.util
 FLAGS = tf.app.flags.FLAGS
 
 tf.app.flags.DEFINE_string(
-    'checkpoint', '/home/eljefec/repo/squeezeDet/data/model_checkpoints/didi/model.ckpt-7000',
+    'checkpoint', '/home/eljefec/repo/squeezeDet/data/model_checkpoints/didi/model.ckpt-42000',
     """Path to the model parameter file.""")
 tf.app.flags.DEFINE_string(
     'bag_dir', '/data/bags/didi-round2/release/car/testing', """ROS bag folder""")
 tf.app.flags.DEFINE_string(
-    'out_dir', '/data/out/', """Directory to dump output image or video.""")
+    'out_dir', 'NO_DEFAULT', """Directory to dump output image or video.""")
 tf.app.flags.DEFINE_string(
     'demo_net', 'didi', """Neural net architecture.""")
 tf.app.flags.DEFINE_string(
     'bag_file', '', """ROS bag.""")
 # tf.app.flags.DEFINE_string('gpu', '0', """gpu id.""")
 tf.app.flags.DEFINE_string(
-    'do', 'video', """[video, tracker, print, tracklet].""")
+    'do', 'NO_DEFAULT', """[video, tracker, print, tracklet].""")
 tf.app.flags.DEFINE_boolean('include_car', False, """Whether to include car in tracklet.""")
 tf.app.flags.DEFINE_boolean('include_ped', False, """Whether to include pedestrian in tracklet.""")
 
@@ -72,6 +72,8 @@ def generate_obstacle_detections(bag_file, mc, skip_null = True):
       final_boxes = None
       final_probs = None
       final_class = None
+
+      frame_count = 0
 
       for numpydata in generator:
         lidar = numpydata.lidar
@@ -103,6 +105,10 @@ def generate_obstacle_detections(bag_file, mc, skip_null = True):
             yield im, final_boxes, final_probs, final_class
         if not skip_null:
           yield im, final_boxes, final_probs, final_class
+
+        frame_count += 1
+        if frame_count % 1000 == 0:
+          print('Processed {} frames.'.format(frame_count))
 
 def get_filename(bag_file):
   base = os.path.basename(bag_file)
@@ -254,6 +260,7 @@ def process_bag(bag_file):
 
   detector = Detector(mc)
 
+  print()
   if FLAGS.do == 'video':
     print('Making video')
     detector.make_detection_video(bag_file)
@@ -272,7 +279,7 @@ def process_bag(bag_file):
       exit()
     detector.gen_tracklet(bag_file, FLAGS.include_car, FLAGS.include_ped)
   else:
-    print('Nothing to do.')
+    raise ValueError('Unrecognized FLAGS.do: [{}]'.format(FLAGS.do))
 
 def main(argv=None):
   if not tf.gfile.Exists(FLAGS.out_dir):
