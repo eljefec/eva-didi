@@ -90,7 +90,7 @@ def generate_kitti(bag_tracklets, imagedir, labeldir, output_bbox, slice_config)
             frame_idx, obs = obs
             bbox = bbox_points(obs)
 
-            # birdseye = ld.lidar_to_birdseye(lidar, slice_config)
+            birdseye = ld.lidar_to_birdseye(lidar, slice_config)
             birdseye_bbox = ld.lidar_to_birdseye(bbox, slice_config, return_points = True)
 
             if birdseye_bbox.shape[0] == 2 and birdseye_bbox.shape[1] == 2:
@@ -100,9 +100,9 @@ def generate_kitti(bag_tracklets, imagedir, labeldir, output_bbox, slice_config)
                 else:
                     bbox_tuple = None
 
-                # crop = ci.crop_image(birdseye, expected_shape, new_shape)
-                # image_file = os.path.join(imagedir, '{:06d}.png'.format(id))
-                # imlib.save_np_image(crop, image_file, bbox_tuple)
+                crop = ci.crop_image(birdseye, expected_shape, new_shape)
+                image_file = os.path.join(imagedir, '{:06d}.png'.format(id))
+                imlib.save_np_image(crop, image_file, bbox_tuple)
 
                 label_path = os.path.join(labeldir, '{:06d}.txt'.format(id))
                 write_kitti_annotation(obs, birdseye_bbox, label_path)
@@ -122,11 +122,8 @@ if __name__ == '__main__':
     # bagdir = '/data/bags/didi-round2/release/car/training/suburu_leading_at_distance'
     bag_tracklets = multibag.find_bag_tracklets(bagdir, '/data/tracklets')
     slice_config = ld.slice_config()
-    slice_config.HEIGHT_RANGE=(-1.50, 0.25)
-    slice_config.SIDE_RANGE=(-40, 40)
-    slice_config.FWD_RANGE=(-40, 40)
     generate_kitti(bag_tracklets,
-                   '/data/KITTI_dev/training_rot/image',
-                   '/data/KITTI_dev/training_rot/label',
+                   '/home/eljefec/repo/squeezeDet/data/KITTI/training_64x64/image_2',
+                   '/home/eljefec/repo/squeezeDet/data/KITTI/training_64x64/label_2',
                    output_bbox = False,
                    slice_config = slice_config)
