@@ -1,5 +1,5 @@
 import datetime
-import time
+import monotonic
 
 def format_seconds(secs, coarse):
     if (coarse):
@@ -17,25 +17,25 @@ class Stopwatch:
         self._start = 0
         if (autostart):
             self.start()
-        
+
     def start(self):
         if not self._started:
             self._started = True
-            self._start = time.monotonic()
+            self._start = monotonic.monotonic()
         return self
-    
+
     def stop(self):
         if not self._started:
             raise RuntimeError('Cannot stop stopwatch that has not been started.')
-        end = time.monotonic()
+        end = monotonic.monotonic()
         self._duration += (end - self._start)
         self._started = False
         self._start = 0
-        
+
     def reset(self):
         self._duration = 0
         self._started = False
         self._start = 0
-        
+
     def format_duration(self, coarse = True):
         return format_seconds(self._duration, coarse)
