@@ -26,4 +26,4 @@ def crop_images(dir, pattern, expected_shape, new_shape):
     _crop_images(image_paths, expected_shape, new_shape)
 
 if __name__ == '__main__':
-    crop_images('/data/KITTI_dev/training_refl/', '*.png', (801, 801, 3), (800, 800, 3))
+    crop_images('/home/eljefec/repo/squeezeDet/data/KITTI/training/', '*.png', (801, 801, 3), (800, 800, 3))
