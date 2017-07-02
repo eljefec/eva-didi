@@ -78,7 +78,7 @@ def generate_birdseye_boxes(multi, batch_size, include_pred):
                 yield (image_batch, rotation_batch)
 
 def train_rotation_detector(multi):
-    batch_size=32
+    batch_size = 128
 
     pred_validation = lambda count : count % 5 == 0
     pred_train = lambda count : count % 5 != 0
@@ -107,7 +107,7 @@ def train_rotation_detector(multi):
 
     hist = model.fit_generator(generator_train,
                                steps_per_epoch = int(0.8 * (multi.count() / batch_size)),
-                               epochs = 20,
+                               epochs = 100,
                                # Values for quick testing:
                                # steps_per_epoch = (128 / batch_size),
                                # epochs = 2,
