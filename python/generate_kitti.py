@@ -5,6 +5,7 @@ import multibag
 import numpystream
 import numpy as np
 import os
+import util.stopwatch
 
 def bbox_points_old(pose):
     side_length = max(pose.w, pose.l)
@@ -74,7 +75,14 @@ def generate_kitti(bag_tracklets, imagedir, labeldir, output_bbox, slice_config)
     print('expected_shape', expected_shape)
     print('new_shape', new_shape)
 
+    stopwatch = util.stopwatch.Stopwatch()
+
     stream = multibag.MultiBagStream(bag_tracklets, numpystream.generate_numpystream)
+
+    stopwatch.stop()
+    print('Elapsed time: {}'.format(stopwatch.format_duration()))
+    stopwatch.start()
+
     for numpydata in stream.generate(infinite = False):
         lidar = numpydata.lidar
         obs = numpydata.obs
@@ -82,7 +90,7 @@ def generate_kitti(bag_tracklets, imagedir, labeldir, output_bbox, slice_config)
             frame_idx, obs = obs
             bbox = bbox_points(obs)
 
-            birdseye = ld.lidar_to_birdseye(lidar, slice_config)
+            # birdseye = ld.lidar_to_birdseye(lidar, slice_config)
             birdseye_bbox = ld.lidar_to_birdseye(bbox, slice_config, return_points = True)
 
             if birdseye_bbox.shape[0] == 2 and birdseye_bbox.shape[1] == 2:
@@ -92,18 +100,25 @@ def generate_kitti(bag_tracklets, imagedir, labeldir, output_bbox, slice_config)
                 else:
                     bbox_tuple = None
 
-                crop = ci.crop_image(birdseye, expected_shape, new_shape)
-                image_file = os.path.join(imagedir, '{:06d}.png'.format(id))
-                imlib.save_np_image(crop, image_file, bbox_tuple)
+                # crop = ci.crop_image(birdseye, expected_shape, new_shape)
+                # image_file = os.path.join(imagedir, '{:06d}.png'.format(id))
+                # imlib.save_np_image(crop, image_file, bbox_tuple)
 
                 label_path = os.path.join(labeldir, '{:06d}.txt'.format(id))
                 write_kitti_annotation(obs, birdseye_bbox, label_path)
 
                 id += 1
+                if id % 1000 == 0:
+                    print('Working... Processed {} samples.'.format(id))
+                    stopwatch.stop()
+                    print('Elapsed time: {}'.format(stopwatch.format_duration()))
+                    stopwatch.start()
+    print('DONE. Processed {} samples.'.format(id))
+    stopwatch.stop()
+    print('Elapsed time: {}'.format(stopwatch.format_duration()))
 
 if __name__ == '__main__':
-    # bagdir = '/data/bags/'
-    bagdir = '/data/bags/didi-round1/Didi-Release-2/Data/1/'
+    bagdir = '/data/bags/'
     # bagdir = '/data/bags/didi-round2/release/car/training/suburu_leading_at_distance'
     bag_tracklets = multibag.find_bag_tracklets(bagdir, '/data/tracklets')
     slice_config = ld.slice_config()
@@ -111,7 +126,7 @@ if __name__ == '__main__':
     slice_config.SIDE_RANGE=(-40, 40)
     slice_config.FWD_RANGE=(-40, 40)
     generate_kitti(bag_tracklets,
-                   '/data/KITTI_dev/rot_round1_release2/image',
-                   '/data/KITTI_dev/rot_round1_release2/label',
-                   output_bbox = True,
+                   '/data/KITTI_dev/training_rot/image',
+                   '/data/KITTI_dev/training_rot/label',
+                   output_bbox = False,
                    slice_config = slice_config)
