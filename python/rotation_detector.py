@@ -95,7 +95,7 @@ def train_rotation_detector(multi):
         ModelCheckpoint(checkpoint_path, monitor='val_loss', save_best_only=False, verbose=0),
     ]
 
-    model = build_model(dropout = 0.2)
+    model = build_model(dropout = 0.4)
 
     model.summary()
 
@@ -136,8 +136,8 @@ if __name__ == '__main__':
     make_dir(CHECKPOINT_DIR)
     make_dir(HISTORY_DIR)
 
-    bagdir = '/data/bags/didi-round2/release/car/training/suburu_leading_front_left'
-    # bagdir = '/data/bags/didi-round2/release/car/training/'
+    bagdir = '/data/bags/didi-round2/release/car/training/'
+    # bagdir = '/data/bags/didi-round2/release/car/training/suburu_leading_front_left'
     bt = mb.find_bag_tracklets(bagdir, '/data/tracklets')
 
     multi = mb.MultiBagStream(bt, numpystream.generate_numpystream)
