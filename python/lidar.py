@@ -16,14 +16,15 @@ import matplotlib
 # matplotlib.use('agg')
 import matplotlib.pyplot as plt
 
-def lidar_to_panorama(lidar):
-    # These values are for Velodyne HDL-32E.
+def lidar_to_panorama(lidar, return_points = False):
+    # These values are for Velodyne HDL-32E. v_res spec is 1.33.
     return tp.point_cloud_to_panorama(lidar,
-                                        v_res = 1.33,
+                                        v_res = 1.2,
                                         h_res = 0.4,
                                         v_fov = (-30.67, 10.67),
                                         d_range = (0, 100),
-                                        y_fudge = 3)
+                                        y_fudge = 3,
+                                        return_points = return_points)
 
 def slice_config():
     cfg = edict()
