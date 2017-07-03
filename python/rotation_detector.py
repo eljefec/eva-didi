@@ -114,8 +114,8 @@ def generate_training_data(multi, outdir):
     idx = np.random.permutation(idx)
 
     val_split = len(idx) / 4
-    val_idx = sorted(idx[val_split:])
-    train_idx = sorted(idx[:val_split])
+    val_idx = sorted(idx[:val_split])
+    train_idx = sorted(idx[val_split:])
 
     with open(train_file, 'w') as f:
         for i in train_idx:
@@ -125,7 +125,7 @@ def generate_training_data(multi, outdir):
         for i in val_idx:
             print(i, file=f)
 
-    print('Trainining set is saved to ' + train_file)
+    print('Training set is saved to ' + train_file)
     print('Validation set is saved to ' + val_file)
 
 def get_size(train_dir, index_file):
@@ -147,11 +147,12 @@ def normalize_angle(radians):
         radians -= math.pi
     while radians < -math.pi:
         radians += math.pi
+    return radians
 
 def augment_example(orig_img, orig_yaw):
     rotation_radians = random.uniform(-math.pi, math.pi)
     # Rotate image
-    new_img = rotate_img(orig_img, rotation_radians)
+    new_img = rotate_image(orig_img, rotation_radians)
     # Calculate new yaw
     new_yaw = orig_yaw + rotation_radians
     new_yaw = normalize_angle(new_yaw)
@@ -221,14 +222,12 @@ def train_rotation_detector(train_dir):
     batch_size = 128
 
     generator_validation = generate_birdseye_boxes(
-                                generate_birdseye_boxes_dir(train_dir, 'val.txt'),
-                                batch_size,
-                                augment = False)
+                                generate_birdseye_boxes_dir(train_dir, 'val.txt', augment = False),
+                                batch_size)
 
     generator_train = generate_birdseye_boxes(
-                                generate_birdseye_boxes_dir(train_dir, 'train.txt'),
-                                batch_size,
-                                augment = True)
+                                generate_birdseye_boxes_dir(train_dir, 'train.txt', augment = True),
+                                batch_size)
 
     checkpoint_path = get_model_filename(CHECKPOINT_DIR, suffix = 'e{epoch:02d}-vl{val_loss:.2f}')
 
@@ -300,17 +299,13 @@ if __name__ == '__main__':
     make_dir(CHECKPOINT_DIR)
     make_dir(HISTORY_DIR)
 
-    train_dir = '/data/rot_train'
-    try_rotating_images(train_dir)
-    exit()
-
-    bagdir = '/data/bags/didi-round2/release/car/training/'
+    # bagdir = '/data/bags/didi-round2/release/car/training/'
     # bagdir = '/data/bags/didi-round2/release/car/training/suburu_leading_front_left'
-    bt = mb.find_bag_tracklets(bagdir, '/data/tracklets')
+    # bt = mb.find_bag_tracklets(bagdir, '/data/tracklets')
 
-    multi = mb.MultiBagStream(bt, numpystream.generate_numpystream)
+    # multi = mb.MultiBagStream(bt, numpystream.generate_numpystream)
 
     train_dir = '/data/rot_train'
-    generate_training_data(multi, train_dir)
+    # generate_training_data(multi, train_dir)
 
     train_rotation_detector(train_dir)
