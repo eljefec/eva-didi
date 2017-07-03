@@ -36,11 +36,12 @@ def build_model(dropout):
     model.add(MaxPooling2D(pool_size = (2, 2)))
     model.add(Conv2D(24, (3, 3), activation='relu'))
     model.add(MaxPooling2D(pool_size = (2, 2)))
+    model.add(Conv2D(48, (3, 3), activation='relu'))
     model.add(Flatten())
     model.add(Dropout(dropout))
-    model.add(Dense(16, activation = 'relu'))
+    model.add(Dense(64, activation = 'relu'))
     model.add(Dropout(dropout))
-    model.add(Dense(8, activation = 'relu'))
+    model.add(Dense(32, activation = 'relu'))
     model.add(Dropout(dropout))
     model.add(Dense(1))
 
@@ -234,7 +235,7 @@ def train_rotation_detector(train_dir):
     # Set up callbacks. Stop early if the model does not improve. Save model checkpoints.
     # Source: http://stackoverflow.com/questions/37293642/how-to-tell-keras-stop-training-based-on-loss-value
     callbacks = [
-        EarlyStopping(monitor='val_loss', patience=2, verbose=0),
+        EarlyStopping(monitor='val_loss', patience=4, verbose=1),
         ModelCheckpoint(checkpoint_path, monitor='val_loss', save_best_only=False, verbose=0),
     ]
 
@@ -246,14 +247,14 @@ def train_rotation_detector(train_dir):
     import tensorflow as tf
     tf.python.control_flow_ops = tf
 
-    model.compile(optimizer = Adam(lr = 0.0001), loss = 'mse', metrics = ['accuracy'])
+    model.compile(optimizer = Adam(lr = 0.0001), loss = 'mse')
 
     steps_per_epoch = get_size(train_dir, 'train.txt') / batch_size
     validation_steps = get_size(train_dir, 'val.txt') / batch_size
 
     hist = model.fit_generator(generator_train,
                                steps_per_epoch = steps_per_epoch,
-                               epochs = 100,
+                               epochs = 200,
                                # Values for quick testing:
                                # steps_per_epoch = (128 / batch_size),
                                # epochs = 2,
@@ -283,7 +284,7 @@ def make_dir(directory):
         os.makedirs(directory)
 
 def try_detector():
-    model_path = os.path.join(CHECKPOINT_DIR, 'model_2017-07-02_03h01m03e02-vl0.74.h5')
+    model_path = os.path.join(CHECKPOINT_DIR, 'model_2017-07-02_17h54m22e39-vl0.56.h5')
     detector = RotationDetector(model_path)
 
     bagdir = '/data/bags/didi-round2/release/car/training/suburu_leading_front_left'
@@ -298,6 +299,9 @@ if __name__ == '__main__':
     make_dir(MODEL_DIR)
     make_dir(CHECKPOINT_DIR)
     make_dir(HISTORY_DIR)
+
+    # try_detector()
+    # exit()
 
     # bagdir = '/data/bags/didi-round2/release/car/training/'
     # bagdir = '/data/bags/didi-round2/release/car/training/suburu_leading_front_left'
