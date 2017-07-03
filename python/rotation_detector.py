@@ -284,7 +284,8 @@ def make_dir(directory):
         os.makedirs(directory)
 
 def try_detector():
-    model_path = os.path.join(CHECKPOINT_DIR, 'model_2017-07-02_17h54m22e39-vl0.56.h5')
+    model_name = 'model_2017-07-02_18h10m55e40-vl0.49.h5'
+    model_path = os.path.join(CHECKPOINT_DIR, model_name)
     detector = RotationDetector(model_path)
 
     bagdir = '/data/bags/didi-round2/release/car/training/suburu_leading_front_left'
@@ -300,8 +301,8 @@ if __name__ == '__main__':
     make_dir(CHECKPOINT_DIR)
     make_dir(HISTORY_DIR)
 
-    # try_detector()
-    # exit()
+    try_detector()
+    exit()
 
     # bagdir = '/data/bags/didi-round2/release/car/training/'
     # bagdir = '/data/bags/didi-round2/release/car/training/suburu_leading_front_left'
