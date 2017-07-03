@@ -279,8 +279,9 @@ class RotationDetector:
         return prediction
 
 def get_latest_detector():
+    abs_checkpoint_dir = '/home/eljefec/repo/eva-didi/python/checkpoints'
     model_name = 'model_2017-07-02_18h10m55e40-vl0.49.h5'
-    model_path = os.path.join(CHECKPOINT_DIR, model_name)
+    model_path = os.path.join(abs_checkpoint_dir, model_name)
     return RotationDetector(model_path)
 
 def make_dir(directory):
