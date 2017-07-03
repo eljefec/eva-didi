@@ -190,6 +190,18 @@ class Detector:
 
   def gen_tracklet(self, bag_file, include_car, include_ped):
 
+    CAR_CLASS = 0
+    PED_CLASS = 1
+
+    def correct_global(global_box, class_idx):
+      # Slight correction needed due to cropping of birds eye image.
+      if class_idx == CAR_CLASS:
+        global_box[0] += 0.365754455
+        global_box[1] += 0.368273374
+      elif class_idx == PED_CLASS:
+        global_box[0] += 0.191718419
+        global_box[1] += 0.154991700
+
     def make_pose(x, y, rz):
       # Estimate tz from histogram.
       return {'tx': x,
@@ -199,8 +211,6 @@ class Detector:
               'ry': 0,
               'rz': rz}
 
-    CAR_CLASS = 0
-    PED_CLASS = 1
     prev_car_pose = make_pose(0, 0, 0)
     prev_ped_pose = make_pose(0, 0, 0)
     predicted_yaw = 0
@@ -222,6 +232,8 @@ class Detector:
           if lidar is not None:
             car_box = rd.get_birdseye_box(lidar, (global_box[0], global_box[1]))
             predicted_yaw = self.rotation_detector.detect_rotation(car_box)
+
+          correct_global(global_box, class_idx)
 
           pose = make_pose(global_box[0], global_box[1], predicted_yaw)
 
