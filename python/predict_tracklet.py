@@ -46,7 +46,7 @@ tf.app.flags.DEFINE_string(
 tf.app.flags.DEFINE_boolean('include_car', False, """Whether to include car in tracklet.""")
 tf.app.flags.DEFINE_boolean('include_ped', False, """Whether to include pedestrian in tracklet.""")
 
-def generate_obstacle_detections(bag_file, mc, skip_null = True):
+def generate_obstacle_detections(bag_file, mc, skip_null):
   """Detect image."""
 
   generator = ns.generate_numpystream(bag_file, tracklet_file = None)
@@ -127,7 +127,7 @@ class Detector:
     }
 
     video_maker = video.VideoMaker(FLAGS.out_dir)
-    generator = generate_obstacle_detections(bag_file, self.mc)
+    generator = generate_obstacle_detections(bag_file, self.mc, skip_null = True)
 
     for im, boxes, probs, classes in generator:
       train._draw_box(
@@ -154,7 +154,7 @@ class Detector:
 
     frame_idx = 0
 
-    generator = generate_obstacle_detections(bag_file, self.mc)
+    generator = generate_obstacle_detections(bag_file, self.mc, skip_null = True)
     for im, boxes, probs, classes in generator:
       frame_idx += 1
 
@@ -178,7 +178,7 @@ class Detector:
       print('Frame: {}, Car Boxes: {}, Ped Boxes: {} Tracked Cars: {}, Tracked Peds: {}'.format(frame_idx, len(car_boxes), len(ped_boxes), len(car_tracker.vehicles), len(ped_tracker.vehicles)))
 
   def print_detections(self, bag_file):
-    generator = generate_obstacle_detections(bag_file, self.mc)
+    generator = generate_obstacle_detections(bag_file, self.mc, skip_null = True)
     for im, boxes, probs, classes in generator:
       print('boxes', boxes)
       print('probs', probs)
@@ -204,7 +204,7 @@ class Detector:
     car_tracklet = generate_tracklet.Tracklet(object_type='Car', l=4.3, w=1.7, h=1.7, first_frame=0)
     ped_tracklet = generate_tracklet.Tracklet(object_type='Pedestrian', l=0.8, w=0.8, h=1.7, first_frame=0)
 
-    generator = generate_obstacle_detections(bag_file, self.mc)
+    generator = generate_obstacle_detections(bag_file, self.mc, skip_null = False)
     for im, boxes, probs, classes in generator:
       car_found = False
       ped_found = False
