@@ -9,6 +9,8 @@ import pickle
 import os
 import util.stopwatch
 import cv2
+import math
+import random
 
 from keras.callbacks import EarlyStopping, ModelCheckpoint
 import keras.layers
@@ -134,7 +136,50 @@ def get_size(train_dir, index_file):
             ids.append(id)
     return len(ids)
 
-def generate_birdseye_boxes_dir(train_dir, index_file, infinite = True):
+def rotate_image(img, radians):
+    (rows, cols, channels) = img.shape
+    degrees = math.degrees(radians)
+    M = cv2.getRotationMatrix2D((cols/2, rows/2), degrees, 1)
+    return cv2.warpAffine(img, M, (cols, rows))
+
+def normalize_angle(radians):
+    while radians > math.pi:
+        radians -= math.pi
+    while radians < -math.pi:
+        radians += math.pi
+
+def augment_example(orig_img, orig_yaw):
+    rotation_radians = random.uniform(-math.pi, math.pi)
+    # Rotate image
+    new_img = rotate_img(orig_img, rotation_radians)
+    # Calculate new yaw
+    new_yaw = orig_yaw + rotation_radians
+    new_yaw = normalize_angle(new_yaw)
+    return (new_img, new_yaw)
+
+def try_rotating_images(train_dir):
+    bagdir = '/data/bags/didi-round2/release/car/training/suburu_leading_front_left'
+    bt = mb.find_bag_tracklets(bagdir, '/data/tracklets')
+
+    multi = mb.MultiBagStream(bt, numpystream.generate_numpystream)
+    generator = generate_birdseye_boxes_single(multi, infinite = False)
+    count = 0
+    frames_since_last_conversion = 0
+    for birdseye_box, yaw in generator:
+        if (yaw > (math.pi / 4) or yaw < (-math.pi / 4)) and frames_since_last_conversion > 10:
+            # Try to undo rotation with negative yaw.
+            rotated = rotate_image(birdseye_box, -yaw)
+            # Expect car to have zero rotation in image.
+            cv2.imwrite('rotate_test_{}.png'.format(count), rotated)
+            print('count: {}, orig_yaw: {}'.format(count, yaw))
+            count += 1
+            frames_since_last_conversion = 0
+            if count % 10 == 0:
+                return
+        else:
+            frames_since_last_conversion += 1
+
+def generate_birdseye_boxes_dir(train_dir, index_file, augment, infinite = True):
     while infinite:
         ids = []
         with open(os.path.join(train_dir, index_file), 'r') as f:
@@ -150,6 +195,9 @@ def generate_birdseye_boxes_dir(train_dir, index_file, infinite = True):
             label_path = get_label_path(labeldir, id)
             with open(label_path, 'r') as f:
                 yaw = float(f.readline())
+
+            if augment:
+                (birdseye_box, yaw) = augment_example(birdseye_box, yaw)
 
             yield birdseye_box, yaw
 
@@ -173,9 +221,14 @@ def train_rotation_detector(train_dir):
     batch_size = 128
 
     generator_validation = generate_birdseye_boxes(
-                                generate_birdseye_boxes_dir(train_dir, 'val.txt'), batch_size)
+                                generate_birdseye_boxes_dir(train_dir, 'val.txt'),
+                                batch_size,
+                                augment = False)
+
     generator_train = generate_birdseye_boxes(
-                                generate_birdseye_boxes_dir(train_dir, 'train.txt'), batch_size)
+                                generate_birdseye_boxes_dir(train_dir, 'train.txt'),
+                                batch_size,
+                                augment = True)
 
     checkpoint_path = get_model_filename(CHECKPOINT_DIR, suffix = 'e{epoch:02d}-vl{val_loss:.2f}')
 
@@ -247,7 +300,8 @@ if __name__ == '__main__':
     make_dir(CHECKPOINT_DIR)
     make_dir(HISTORY_DIR)
 
-    try_detector()
+    train_dir = '/data/rot_train'
+    try_rotating_images(train_dir)
     exit()
 
     bagdir = '/data/bags/didi-round2/release/car/training/'
