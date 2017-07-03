@@ -2,6 +2,7 @@
 
 die () {
     echo >&2 "$@"
+    echo "Usage: sh ./scripts/predict_tracklets.sh RUN_NAME"
     exit 1
 }
 
@@ -17,7 +18,7 @@ python python/predict_tracklet.py --bag_dir /data/bags/didi-round2/release/car/t
 python python/predict_tracklet.py --bag_file /data/bags/didi-round2/release/pedestrian/ped_test.bag --do tracklet --include_ped --out_dir $OUT_DIR/test
 
 # Generate tracklets for training set.
-# python python/predict_tracklet.py --bag_file /data/bags/didi-round2/release/car/training/suburu_leading_front_left/suburu11.bag --do tracklet --include_car --out_dir $OUT_DIR
+python python/predict_tracklet.py --bag_file /data/bags/didi-round2/release/car/training/suburu_leading_front_left/suburu11.bag --do tracklet --include_car --out_dir $OUT_DIR
 mkdir $OUT_DIR/suburu11
 python $DIDI_DIR/evaluate_tracklets.py $OUT_DIR/suburu11.xml /data/tracklets/didi-round2_release_car_training_suburu_leading_front_left-suburu11/tracklet_labels.xml -o $OUT_DIR/suburu11
 
