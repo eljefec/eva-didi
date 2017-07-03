@@ -47,27 +47,41 @@ tf.app.flags.DEFINE_string(
 tf.app.flags.DEFINE_boolean('include_car', False, """Whether to include car in tracklet.""")
 tf.app.flags.DEFINE_boolean('include_ped', False, """Whether to include pedestrian in tracklet.""")
 
-def generate_obstacle_detections(bag_file, mc, skip_null):
+def generate_detections(bag_file, demo_net, skip_null):
   """Detect image."""
 
-  generator = ns.generate_numpystream(bag_file, tracklet_file = None)
+  gpu = 0
 
-  assert FLAGS.demo_net == 'squeezeDet' or FLAGS.demo_net == 'squeezeDet+' \
-         or FLAGS.demo_net == 'didi', \
-      'Selected nueral net architecture not supported: {}'.format(FLAGS.demo_net)
+  assert demo_net == 'squeezeDet' or demo_net == 'squeezeDet+' \
+         or demo_net == 'didi', \
+      'Selected nueral net architecture not supported: {}'.format(demo_net)
 
   graph = tf.Graph()
   with graph.as_default():
-    if FLAGS.demo_net == 'squeezeDet':
-      model = SqueezeDet(mc, FLAGS.gpu)
-    elif FLAGS.demo_net == 'squeezeDet+':
-      model = SqueezeDetPlus(mc, FLAGS.gpu)
-    elif FLAGS.demo_net == 'didi':
-      model = SqueezeDet(mc, FLAGS.gpu)
+    if demo_net == 'squeezeDet':
+      mc = kitti_squeezeDet_config()
+      mc.BATCH_SIZE = 1
+      # model parameters will be restored from checkpoint
+      mc.LOAD_PRETRAINED_MODEL = False
+      model = SqueezeDet(mc, gpu)
+      checkpoint = '/home/eljefec/repo/squeezeDet/data/model_checkpoints/squeezeDet/model.ckpt-87000'
+    elif demo_net == 'squeezeDet+':
+      mc = kitti_squeezeDetPlus_config()
+      mc.BATCH_SIZE = 1
+      mc.LOAD_PRETRAINED_MODEL = False
+      model = SqueezeDetPlus(mc, gpu)
+      checkpoint = '/home/eljefec/repo/squeezeDet/data/model_checkpoints/squeezeDetPlus/model.ckpt-95000'
+    elif demo_net == 'didi':
+      mc = didi_squeezeDet_config()
+      mc.BATCH_SIZE = 1
+      mc.LOAD_PRETRAINED_MODEL = False
+      model = SqueezeDet(mc, gpu)
+      checkpoint = '/home/eljefec/repo/squeezeDet/data/model_checkpoints/didi/model.ckpt-42000'
+      input_generator = generate_lidar_birdseye(bag_file, mc)
 
     saver = tf.train.Saver(model.model_params)
     sess = tf.Session(graph=graph, config=tf.ConfigProto(allow_soft_placement=True))
-    saver.restore(sess, FLAGS.checkpoint)
+    saver.restore(sess, checkpoint)
 
   im = None
   final_boxes = None
@@ -76,14 +90,8 @@ def generate_obstacle_detections(bag_file, mc, skip_null):
 
   frame_count = 0
 
-  for numpydata in generator:
-    lidar = numpydata.lidar
-    if lidar is not None:
-      birdseye = ld.lidar_to_birdseye(lidar, ld.slice_config())
-
-      im = ci.crop_image(birdseye,
-                         (mc.IMAGE_WIDTH + 1, mc.IMAGE_HEIGHT + 1, 3),
-                         (mc.IMAGE_WIDTH, mc.IMAGE_HEIGHT, 3))
+  for im, token in input_generator:
+    if im is not None:
       im = im.astype(np.float32, copy=False)
       input_image = im - mc.BGR_MEANS
 
@@ -103,15 +111,29 @@ def generate_obstacle_detections(bag_file, mc, skip_null):
       final_class = [final_class[idx] for idx in keep_idx]
 
       if skip_null:
-        yield im, final_boxes, final_probs, final_class, lidar
+        yield im, final_boxes, final_probs, final_class, token
     if not skip_null:
-      yield im, final_boxes, final_probs, final_class, lidar
+      yield im, final_boxes, final_probs, final_class, token
 
     frame_count += 1
     if frame_count % 1000 == 0:
       print('Processed {} frames.'.format(frame_count))
 
   sess.close()
+
+def generate_lidar_birdseye(bag_file, mc):
+  im = None
+  generator = ns.generate_numpystream(bag_file, tracklet_file = None)
+  for numpydata in generator:
+    lidar = numpydata.lidar
+    if lidar is not None:
+      birdseye = ld.lidar_to_birdseye(lidar, ld.slice_config())
+
+      im = ci.crop_image(birdseye,
+                         (mc.IMAGE_WIDTH + 1, mc.IMAGE_HEIGHT + 1, 3),
+                         (mc.IMAGE_WIDTH, mc.IMAGE_HEIGHT, 3))
+    # Must yield item for each frame in generator.
+    yield im, lidar
 
 def get_filename(bag_file):
   base = os.path.basename(bag_file)
@@ -131,7 +153,7 @@ class Detector:
     }
 
     video_maker = video.VideoMaker(FLAGS.out_dir)
-    generator = generate_obstacle_detections(bag_file, self.mc, skip_null = True)
+    generator = generate_detections(bag_file, demo_net = 'didi', skip_null = True)
 
     for im, boxes, probs, classes, lidar in generator:
       train._draw_box(
@@ -158,7 +180,7 @@ class Detector:
 
     frame_idx = 0
 
-    generator = generate_obstacle_detections(bag_file, self.mc, skip_null = True)
+    generator = generate_detections(bag_file, demo_net = 'didi', skip_null = True)
     for im, boxes, probs, classes, lidar in generator:
       frame_idx += 1
 
@@ -182,7 +204,7 @@ class Detector:
       print('Frame: {}, Car Boxes: {}, Ped Boxes: {} Tracked Cars: {}, Tracked Peds: {}'.format(frame_idx, len(car_boxes), len(ped_boxes), len(car_tracker.vehicles), len(ped_tracker.vehicles)))
 
   def print_detections(self, bag_file):
-    generator = generate_obstacle_detections(bag_file, self.mc, skip_null = True)
+    generator = generate_detections(bag_file, demo_net = 'didi', skip_null = True)
     for im, boxes, probs, classes, lidar in generator:
       print('boxes', boxes)
       print('probs', probs)
@@ -219,7 +241,7 @@ class Detector:
     car_tracklet = generate_tracklet.Tracklet(object_type='Car', l=4.3, w=1.7, h=1.7, first_frame=0)
     ped_tracklet = generate_tracklet.Tracklet(object_type='Pedestrian', l=0.8, w=0.8, h=1.708, first_frame=0)
 
-    generator = generate_obstacle_detections(bag_file, self.mc, skip_null = False)
+    generator = generate_detections(bag_file, demo_net = 'didi', skip_null = False)
     for im, boxes, probs, classes, lidar in generator:
       car_found = False
       ped_found = False
