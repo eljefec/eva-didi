@@ -79,10 +79,10 @@ def get_image_label_dirs(dir):
     return (imagedir, labeldir)
 
 def get_image_path(imagedir, id):
-    return os.path.join(imagedir, '{:06d}.png'.format(id))
+    return util.traingen.get_example_path(imagedir, id, 'png')
 
 def get_label_path(labeldir, id):
-    return os.path.join(labeldir, '{:06d}.txt'.format(id))
+    return util.traingen.get_example_path(labeldir, id, 'txt')
 
 def generate_training_data(multi, outdir):
     imagedir, labeldir = get_image_label_dirs(outdir)
@@ -102,32 +102,7 @@ def generate_training_data(multi, outdir):
 
         id += 1
 
-    idx = []
-    with open(os.path.join(outdir, 'trainval.txt'), 'w') as f:
-        for i in range(id):
-            formatted = '{:06d}'.format(i)
-            print(formatted, file=f)
-            idx.append(formatted)
-
-    train_file = os.path.join(outdir, 'train.txt')
-    val_file = os.path.join(outdir, 'val.txt')
-
-    idx = np.random.permutation(idx)
-
-    val_split = len(idx) / 4
-    val_idx = sorted(idx[:val_split])
-    train_idx = sorted(idx[val_split:])
-
-    with open(train_file, 'w') as f:
-        for i in train_idx:
-            print(i, file=f)
-
-    with open(val_file, 'w') as f:
-        for i in val_idx:
-            print(i, file=f)
-
-    print('Training set is saved to ' + train_file)
-    print('Validation set is saved to ' + val_file)
+    util.traingen.write_train_val(id)
 
 def get_size(train_dir, index_file):
     fullpath = os.path.join(train_dir, index_file)
