@@ -47,7 +47,7 @@ def build_model(dropout):
 
     return model
 
-def get_birdseye_box(lidar, obs):
+def get_birdseye_box(lidar, obs_position):
     slice_config = ld.slice_config()
     slice_config.SIDE_RANGE = (-2.5, 2.5)
     slice_config.FWD_RANGE = (-2.5, 2.5)
@@ -55,7 +55,7 @@ def get_birdseye_box(lidar, obs):
     birdseye = ld.lidar_to_birdseye(lidar,
                                     slice_config,
                                     return_points = False,
-                                    center = (obs.position[0], obs.position[1]))
+                                    center = (obs_position[0], obs_position[1]))
     return ci.crop_image(birdseye, (51, 51, 3), INPUT_SHAPE)
 
 def generate_birdseye_boxes_single(multi, infinite):
@@ -64,7 +64,7 @@ def generate_birdseye_boxes_single(multi, infinite):
         lidar = numpydata.lidar
         obs = numpydata.obs[1]
         if lidar is not None:
-            birdseye_box = get_birdseye_box(lidar, obs)
+            birdseye_box = get_birdseye_box(lidar, (obs.position[0], obs.position[1]))
 
             yield birdseye_box, obs.yaw
 
@@ -278,15 +278,18 @@ class RotationDetector:
         prediction = self.model.predict(np.array([birdseye_box]), batch_size=1, verbose=0)
         return prediction
 
+def get_latest_detector():
+    model_name = 'model_2017-07-02_18h10m55e40-vl0.49.h5'
+    model_path = os.path.join(CHECKPOINT_DIR, model_name)
+    return RotationDetector(model_path)
+
 def make_dir(directory):
     import os
     if not os.path.exists(directory):
         os.makedirs(directory)
 
 def try_detector():
-    model_name = 'model_2017-07-02_18h10m55e40-vl0.49.h5'
-    model_path = os.path.join(CHECKPOINT_DIR, model_name)
-    detector = RotationDetector(model_path)
+    detector = get_latest_detector()
 
     bagdir = '/data/bags/didi-round2/release/car/training/suburu_leading_front_left'
     bt = mb.find_bag_tracklets(bagdir, '/data/tracklets')

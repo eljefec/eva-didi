@@ -19,6 +19,7 @@ import generate_tracklet
 import lidar as ld
 import my_bag_utils as bu
 import numpystream as ns
+import rotation_detector as rd
 import track
 import video
 
@@ -55,7 +56,8 @@ def generate_obstacle_detections(bag_file, mc, skip_null):
          or FLAGS.demo_net == 'didi', \
       'Selected nueral net architecture not supported: {}'.format(FLAGS.demo_net)
 
-  with tf.Graph().as_default():
+  graph = tf.Graph()
+  with graph.as_default():
     if FLAGS.demo_net == 'squeezeDet':
       model = SqueezeDet(mc, FLAGS.gpu)
     elif FLAGS.demo_net == 'squeezeDet+':
@@ -64,51 +66,52 @@ def generate_obstacle_detections(bag_file, mc, skip_null):
       model = SqueezeDet(mc, FLAGS.gpu)
 
     saver = tf.train.Saver(model.model_params)
+    sess = tf.Session(graph=graph, config=tf.ConfigProto(allow_soft_placement=True))
+    saver.restore(sess, FLAGS.checkpoint)
 
-    with tf.Session(config=tf.ConfigProto(allow_soft_placement=True)) as sess:
-      saver.restore(sess, FLAGS.checkpoint)
+  im = None
+  final_boxes = None
+  final_probs = None
+  final_class = None
 
-      im = None
-      final_boxes = None
-      final_probs = None
-      final_class = None
+  frame_count = 0
 
-      frame_count = 0
+  for numpydata in generator:
+    lidar = numpydata.lidar
+    if lidar is not None:
+      birdseye = ld.lidar_to_birdseye(lidar, ld.slice_config())
 
-      for numpydata in generator:
-        lidar = numpydata.lidar
-        if lidar is not None:
-          birdseye = ld.lidar_to_birdseye(lidar, ld.slice_config())
+      im = ci.crop_image(birdseye,
+                         (mc.IMAGE_WIDTH + 1, mc.IMAGE_HEIGHT + 1, 3),
+                         (mc.IMAGE_WIDTH, mc.IMAGE_HEIGHT, 3))
+      im = im.astype(np.float32, copy=False)
+      input_image = im - mc.BGR_MEANS
 
-          im = ci.crop_image(birdseye,
-                             (mc.IMAGE_WIDTH + 1, mc.IMAGE_HEIGHT + 1, 3),
-                             (mc.IMAGE_WIDTH, mc.IMAGE_HEIGHT, 3))
-          im = im.astype(np.float32, copy=False)
-          input_image = im - mc.BGR_MEANS
+      # Detect
+      det_boxes, det_probs, det_class = sess.run(
+          [model.det_boxes, model.det_probs, model.det_class],
+          feed_dict={model.image_input:[input_image]})
 
-          # Detect
-          det_boxes, det_probs, det_class = sess.run(
-              [model.det_boxes, model.det_probs, model.det_class],
-              feed_dict={model.image_input:[input_image]})
+      # Filter
+      final_boxes, final_probs, final_class = model.filter_prediction(
+          det_boxes[0], det_probs[0], det_class[0])
 
-          # Filter
-          final_boxes, final_probs, final_class = model.filter_prediction(
-              det_boxes[0], det_probs[0], det_class[0])
+      keep_idx    = [idx for idx in range(len(final_probs)) \
+                        if final_probs[idx] > mc.PLOT_PROB_THRESH]
+      final_boxes = [final_boxes[idx] for idx in keep_idx]
+      final_probs = [final_probs[idx] for idx in keep_idx]
+      final_class = [final_class[idx] for idx in keep_idx]
 
-          keep_idx    = [idx for idx in range(len(final_probs)) \
-                            if final_probs[idx] > mc.PLOT_PROB_THRESH]
-          final_boxes = [final_boxes[idx] for idx in keep_idx]
-          final_probs = [final_probs[idx] for idx in keep_idx]
-          final_class = [final_class[idx] for idx in keep_idx]
+      if skip_null:
+        yield im, final_boxes, final_probs, final_class, lidar
+    if not skip_null:
+      yield im, final_boxes, final_probs, final_class, lidar
 
-          if skip_null:
-            yield im, final_boxes, final_probs, final_class
-        if not skip_null:
-          yield im, final_boxes, final_probs, final_class
+    frame_count += 1
+    if frame_count % 1000 == 0:
+      print('Processed {} frames.'.format(frame_count))
 
-        frame_count += 1
-        if frame_count % 1000 == 0:
-          print('Processed {} frames.'.format(frame_count))
+  sess.close()
 
 def get_filename(bag_file):
   base = os.path.basename(bag_file)
@@ -118,6 +121,7 @@ def get_filename(bag_file):
 class Detector:
   def __init__(self, mc):
     self.mc = mc
+    self.rotation_detector = rd.get_latest_detector()
 
   def make_detection_video(self, bag_file):
     cls2clr = {
@@ -129,7 +133,7 @@ class Detector:
     video_maker = video.VideoMaker(FLAGS.out_dir)
     generator = generate_obstacle_detections(bag_file, self.mc, skip_null = True)
 
-    for im, boxes, probs, classes in generator:
+    for im, boxes, probs, classes, lidar in generator:
       train._draw_box(
           im, boxes,
           [self.mc.CLASS_NAMES[idx]+': (%.2f)'% prob \
@@ -155,7 +159,7 @@ class Detector:
     frame_idx = 0
 
     generator = generate_obstacle_detections(bag_file, self.mc, skip_null = True)
-    for im, boxes, probs, classes in generator:
+    for im, boxes, probs, classes, lidar in generator:
       frame_idx += 1
 
       car_boxes = []
@@ -179,33 +183,33 @@ class Detector:
 
   def print_detections(self, bag_file):
     generator = generate_obstacle_detections(bag_file, self.mc, skip_null = True)
-    for im, boxes, probs, classes in generator:
+    for im, boxes, probs, classes, lidar in generator:
       print('boxes', boxes)
       print('probs', probs)
       print('classes', classes)
 
   def gen_tracklet(self, bag_file, include_car, include_ped):
 
-    def make_pose(x, y):
+    def make_pose(x, y, rz):
       # Estimate tz from histogram.
       return {'tx': x,
               'ty': y,
               'tz': -0.9,
               'rx': 0,
               'ry': 0,
-              'rz': 0}
+              'rz': rz}
 
     CAR_CLASS = 0
     PED_CLASS = 1
-    prev_car_pose = make_pose(0, 0)
-    prev_ped_pose = make_pose(0, 0)
+    prev_car_pose = make_pose(0, 0, 0)
+    prev_ped_pose = make_pose(0, 0, 0)
 
     # l, w, h from histogram
     car_tracklet = generate_tracklet.Tracklet(object_type='Car', l=4.3, w=1.7, h=1.7, first_frame=0)
     ped_tracklet = generate_tracklet.Tracklet(object_type='Pedestrian', l=0.8, w=0.8, h=1.7, first_frame=0)
 
     generator = generate_obstacle_detections(bag_file, self.mc, skip_null = False)
-    for im, boxes, probs, classes in generator:
+    for im, boxes, probs, classes, lidar in generator:
       car_found = False
       ped_found = False
       if (im is not None and boxes is not None
@@ -213,7 +217,11 @@ class Detector:
         # Assume decreasing order of probability
         for box, prob, class_idx in zip(boxes, probs, classes):
           global_box = ld.birdseye_to_global(box, ld.slice_config())
-          pose = make_pose(global_box[0], global_box[1])
+
+          car_box = rd.get_birdseye_box(lidar, (global_box[0], global_box[1]))
+          predicted_yaw = self.rotation_detector.detect_rotation(car_box)
+
+          pose = make_pose(global_box[0], global_box[1], predicted_yaw)
 
           if not car_found and class_idx == CAR_CLASS:
             # box is in center form (cx, cy, w, h)
