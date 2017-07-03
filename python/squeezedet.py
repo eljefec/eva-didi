@@ -14,6 +14,7 @@ import moviepy.editor as mpy
 import numpy as np
 import tensorflow as tf
 
+import camera_converter as cc
 import crop_images as ci
 import generate_tracklet
 import lidar as ld
@@ -27,6 +28,9 @@ from config import *
 from nets import *
 import train
 import utils.util
+
+CAR_CLASS = 0
+PED_CLASS = 1
 
 FLAGS = tf.app.flags.FLAGS
 
@@ -67,7 +71,7 @@ def get_model_config(demo_net):
     mc.LOAD_PRETRAINED_MODEL = False
   return mc
 
-def generate_detections(bag_file, demo_net, skip_null):
+def generate_detections(bag_file, demo_net, skip_null, tracklet_file = None):
   """Detect image."""
 
   gpu = 0
@@ -82,11 +86,11 @@ def generate_detections(bag_file, demo_net, skip_null):
     if demo_net == 'squeezeDet':
       model = SqueezeDet(mc, gpu)
       checkpoint = '/home/eljefec/repo/squeezeDet/data/model_checkpoints/squeezeDet/model.ckpt-87000'
-      input_generator = generate_camera_images(bag_file, mc)
+      input_generator = generate_camera_images(bag_file, mc, tracklet_file)
     elif demo_net == 'squeezeDet+':
       model = SqueezeDetPlus(mc, gpu)
       checkpoint = '/home/eljefec/repo/squeezeDet/data/model_checkpoints/squeezeDetPlus/model.ckpt-95000'
-      input_generator = generate_camera_images(bag_file, mc)
+      input_generator = generate_camera_images(bag_file, mc, tracklet_file)
     elif demo_net == 'didi':
       model = SqueezeDet(mc, gpu)
       checkpoint = '/home/eljefec/repo/squeezeDet/data/model_checkpoints/didi/model.ckpt-42000'
@@ -134,19 +138,22 @@ def generate_detections(bag_file, demo_net, skip_null):
 
   sess.close()
 
-def generate_camera_images(bag_file, mc):
+def generate_camera_images(bag_file, mc, tracklet_file):
+  camera_converter = cc.CameraConverter()
   im = None
-  generator = ns.generate_numpystream(bag_file, tracklet_file = None)
+  generator = ns.generate_numpystream(bag_file, tracklet_file)
   for numpydata in generator:
     im = numpydata.image
+    obs = numpydata.obs
     if im is not None:
+      im = camera_converter.undistort_image(im)
       width_start = int((im.shape[1] - mc.IMAGE_WIDTH) / 2)
       height_start = (800 - mc.IMAGE_HEIGHT)
       im = im[height_start : height_start + mc.IMAGE_HEIGHT,
               width_start : width_start + mc.IMAGE_WIDTH,
               :]
     # Must yield item for each frame in generator.
-    yield im, None
+    yield im, obs
 
 def generate_lidar_birdseye(bag_file, mc):
   im = None
@@ -238,9 +245,6 @@ class Detector:
       print('classes', classes)
 
   def gen_tracklet(self, bag_file, include_car, include_ped):
-
-    CAR_CLASS = 0
-    PED_CLASS = 1
 
     def correct_global(global_box, class_idx):
       # Slight correction needed due to cropping of birds eye image.
