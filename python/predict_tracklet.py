@@ -203,10 +203,11 @@ class Detector:
     PED_CLASS = 1
     prev_car_pose = make_pose(0, 0, 0)
     prev_ped_pose = make_pose(0, 0, 0)
+    predicted_yaw = 0
 
     # l, w, h from histogram
     car_tracklet = generate_tracklet.Tracklet(object_type='Car', l=4.3, w=1.7, h=1.7, first_frame=0)
-    ped_tracklet = generate_tracklet.Tracklet(object_type='Pedestrian', l=0.8, w=0.8, h=1.7, first_frame=0)
+    ped_tracklet = generate_tracklet.Tracklet(object_type='Pedestrian', l=0.8, w=0.8, h=1.708, first_frame=0)
 
     generator = generate_obstacle_detections(bag_file, self.mc, skip_null = False)
     for im, boxes, probs, classes, lidar in generator:
@@ -218,8 +219,9 @@ class Detector:
         for box, prob, class_idx in zip(boxes, probs, classes):
           global_box = ld.birdseye_to_global(box, ld.slice_config())
 
-          car_box = rd.get_birdseye_box(lidar, (global_box[0], global_box[1]))
-          predicted_yaw = self.rotation_detector.detect_rotation(car_box)
+          if lidar is not None:
+            car_box = rd.get_birdseye_box(lidar, (global_box[0], global_box[1]))
+            predicted_yaw = self.rotation_detector.detect_rotation(car_box)
 
           pose = make_pose(global_box[0], global_box[1], predicted_yaw)
 
