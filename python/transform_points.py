@@ -278,7 +278,8 @@ def point_cloud_to_panorama(points,
                             h_res = 0.35,
                             v_fov = (-24.9, 2.0),
                             d_range = (0,100),
-                            y_fudge = 3
+                            y_fudge = 3,
+                            return_points = False
                             ):
     """ Takes point cloud data as input and creates a 360 degree panoramic
         image, returned as a numpy array.
@@ -312,7 +313,6 @@ def point_cloud_to_panorama(points,
     x_points = points[:, 0]
     y_points = points[:, 1]
     z_points = points[:, 2]
-    r_points = points[:, 3]
     d_points = np.sqrt(x_points ** 2 + y_points ** 2)  # map distance relative to origin
     #d_points = np.sqrt(x_points**2 + y_points**2 + z_points**2) # abs distance
 
@@ -344,11 +344,17 @@ def point_cloud_to_panorama(points,
     y_min = -((v_fov[1] / v_res) + y_fudge)
     y_img = np.trunc(y_img - y_min).astype(np.int32)
 
+    if return_points:
+        return np.stack((x_img, y_img), axis=-1)
+
+    r_points = points[:, 3]
+
     # CLIP DISTANCES
     d_points = np.clip(d_points, a_min=d_range[0], a_max=d_range[1])
 
     # CONVERT TO IMAGE ARRAY
-    img = np.zeros([y_max + 1, x_max + 1], dtype=np.uint8)
-    img[y_img, x_img] = scale_to_255(d_points, min=d_range[0], max=d_range[1])
+    img = np.zeros([y_max + 1, x_max + 1, 3], dtype=np.uint8)
+    img[y_img, x_img, 1] = scale_to_255(r_points, min=0, max=60)
+    img[y_img, x_img, 2] = scale_to_255(d_points, min=d_range[0], max=d_range[1])
 
     return img
