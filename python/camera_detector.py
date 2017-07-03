@@ -14,6 +14,10 @@ def read_ost_array(ost, field):
     ost_cm = ost[field]
     return np.array(ost_cm['data']).reshape(ost_cm['rows'], ost_cm['cols'])
 
+def lidar_point_to_camera_origin(point):
+    # Based on https://github.com/udacity/didi-competition/blob/master/mkz-description/mkz.urdf.xacro
+    return (point - [1.9304 - 1.5494, 0, 0.9398 - 1.27])
+
 class Undistorter:
     def __init__(self):
         ost = read_ost_yaml()
@@ -24,8 +28,9 @@ class Undistorter:
     def undistort_image(self, im):
         return cv2.undistort(im, self.camera_matrix, self.distortion_coefficients)
 
-    def project_point(self, object_point):
+    def project_point(self, lidar_point):
         # See formulas at http://docs.opencv.org/2.4/modules/calib3d/doc/camera_calibration_and_3d_reconstruction.html
+        object_point = lidar_point_to_camera_origin(lidar_point)
         z_camera = object_point[0]
         x_camera = -object_point[1]
         y_camera = -object_point[2]
