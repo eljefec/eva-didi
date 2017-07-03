@@ -31,3 +31,4 @@ dependencies:
         - easydict==1.6
         - joblib==0.10.3
         - shapely
+        - filterpy
