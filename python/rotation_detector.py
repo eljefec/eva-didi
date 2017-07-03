@@ -217,18 +217,38 @@ from util import *
 def get_model_filename(directory, suffix = '', ext = 'h5'):
     return '{}/model_{}{}.{}'.format(directory, util.stopwatch.format_now(), suffix, ext)
 
-def detect_rotation(birdseye):
-    pass
+class RotationDetector:
+    def __init__(self, model_path):
+        self.model = keras.models.load_model(model_path)
+
+    def detect_rotation(self, birdseye_box):
+        prediction = self.model.predict(np.array([birdseye_box]), batch_size=1, verbose=0)
+        return prediction
 
 def make_dir(directory):
     import os
     if not os.path.exists(directory):
         os.makedirs(directory)
 
+def try_detector():
+    model_path = os.path.join(CHECKPOINT_DIR, 'model_2017-07-02_03h01m03e02-vl0.74.h5')
+    detector = RotationDetector(model_path)
+
+    bagdir = '/data/bags/didi-round2/release/car/training/suburu_leading_front_left'
+    bt = mb.find_bag_tracklets(bagdir, '/data/tracklets')
+    multi = mb.MultiBagStream(bt, numpystream.generate_numpystream)
+    generator = generate_birdseye_boxes_single(multi, infinite = False)
+    for birdseye_box, yaw in generator:
+        prediction = detector.detect_rotation(birdseye_box)
+        print('gt_yaw: [{}], predicted_yaw: [{}]'.format(yaw, prediction))
+
 if __name__ == '__main__':
     make_dir(MODEL_DIR)
     make_dir(CHECKPOINT_DIR)
     make_dir(HISTORY_DIR)
+
+    try_detector()
+    exit()
 
     bagdir = '/data/bags/didi-round2/release/car/training/'
     # bagdir = '/data/bags/didi-round2/release/car/training/suburu_leading_front_left'
