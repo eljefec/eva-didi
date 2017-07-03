@@ -47,6 +47,26 @@ tf.app.flags.DEFINE_string(
 tf.app.flags.DEFINE_boolean('include_car', False, """Whether to include car in tracklet.""")
 tf.app.flags.DEFINE_boolean('include_ped', False, """Whether to include pedestrian in tracklet.""")
 
+def get_model_config(demo_net):
+  assert demo_net == 'squeezeDet' or demo_net == 'squeezeDet+' \
+         or demo_net == 'didi', \
+      'Selected neural net architecture not supported: {}'.format(demo_net)
+
+  if demo_net == 'squeezeDet':
+    mc = kitti_squeezeDet_config()
+    mc.BATCH_SIZE = 1
+    # model parameters will be restored from checkpoint
+    mc.LOAD_PRETRAINED_MODEL = False
+  elif demo_net == 'squeezeDet+':
+    mc = kitti_squeezeDetPlus_config()
+    mc.BATCH_SIZE = 1
+    mc.LOAD_PRETRAINED_MODEL = False
+  elif demo_net == 'didi':
+    mc = didi_squeezeDet_config()
+    mc.BATCH_SIZE = 1
+    mc.LOAD_PRETRAINED_MODEL = False
+  return mc
+
 def generate_detections(bag_file, demo_net, skip_null):
   """Detect image."""
 
@@ -54,27 +74,20 @@ def generate_detections(bag_file, demo_net, skip_null):
 
   assert demo_net == 'squeezeDet' or demo_net == 'squeezeDet+' \
          or demo_net == 'didi', \
-      'Selected nueral net architecture not supported: {}'.format(demo_net)
+      'Selected neural net architecture not supported: {}'.format(demo_net)
 
   graph = tf.Graph()
   with graph.as_default():
+    mc = get_model_config(demo_net)
     if demo_net == 'squeezeDet':
-      mc = kitti_squeezeDet_config()
-      mc.BATCH_SIZE = 1
-      # model parameters will be restored from checkpoint
-      mc.LOAD_PRETRAINED_MODEL = False
       model = SqueezeDet(mc, gpu)
       checkpoint = '/home/eljefec/repo/squeezeDet/data/model_checkpoints/squeezeDet/model.ckpt-87000'
+      input_generator = generate_camera_images(bag_file, mc)
     elif demo_net == 'squeezeDet+':
-      mc = kitti_squeezeDetPlus_config()
-      mc.BATCH_SIZE = 1
-      mc.LOAD_PRETRAINED_MODEL = False
       model = SqueezeDetPlus(mc, gpu)
       checkpoint = '/home/eljefec/repo/squeezeDet/data/model_checkpoints/squeezeDetPlus/model.ckpt-95000'
+      input_generator = generate_camera_images(bag_file, mc)
     elif demo_net == 'didi':
-      mc = didi_squeezeDet_config()
-      mc.BATCH_SIZE = 1
-      mc.LOAD_PRETRAINED_MODEL = False
       model = SqueezeDet(mc, gpu)
       checkpoint = '/home/eljefec/repo/squeezeDet/data/model_checkpoints/didi/model.ckpt-42000'
       input_generator = generate_lidar_birdseye(bag_file, mc)
@@ -121,6 +134,22 @@ def generate_detections(bag_file, demo_net, skip_null):
 
   sess.close()
 
+def generate_camera_images(bag_file, mc):
+  im = None
+  generator = ns.generate_numpystream(bag_file, tracklet_file = None)
+  for numpydata in generator:
+    im = numpydata.image
+    if im is not None:
+      print('im.shape', im.shape)
+      width_start = int((im.shape[1] - mc.IMAGE_WIDTH) / 2)
+      height_start = (800 - mc.IMAGE_HEIGHT)
+      print('width_start: {}, height_start: {}'.format(width_start, height_start))
+      im = im[height_start : height_start + mc.IMAGE_HEIGHT,
+              width_start : width_start + mc.IMAGE_WIDTH,
+              :]
+    # Must yield item for each frame in generator.
+    yield im, None
+
 def generate_lidar_birdseye(bag_file, mc):
   im = None
   generator = ns.generate_numpystream(bag_file, tracklet_file = None)
@@ -141,11 +170,11 @@ def get_filename(bag_file):
   return split[0]
 
 class Detector:
-  def __init__(self, mc):
-    self.mc = mc
+  def __init__(self, demo_net):
+    self.mc = get_model_config(demo_net)
     self.rotation_detector = rd.get_latest_detector()
 
-  def make_detection_video(self, bag_file):
+  def make_detection_video(self, bag_file, demo_net):
     cls2clr = {
         'car': (255, 191, 0),
         'cyclist': (0, 191, 255),
@@ -153,7 +182,7 @@ class Detector:
     }
 
     video_maker = video.VideoMaker(FLAGS.out_dir)
-    generator = generate_detections(bag_file, demo_net = 'didi', skip_null = True)
+    generator = generate_detections(bag_file, demo_net = demo_net, skip_null = True)
 
     for im, boxes, probs, classes, lidar in generator:
       train._draw_box(
@@ -287,27 +316,12 @@ class Detector:
     tracklet_collection.write_xml(tracklet_file)
 
 def process_bag(bag_file):
-  # Load model config
-  if FLAGS.demo_net == 'squeezeDet':
-    mc = kitti_squeezeDet_config()
-    mc.BATCH_SIZE = 1
-    # model parameters will be restored from checkpoint
-    mc.LOAD_PRETRAINED_MODEL = False
-  elif FLAGS.demo_net == 'squeezeDet+':
-    mc = kitti_squeezeDetPlus_config()
-    mc.BATCH_SIZE = 1
-    mc.LOAD_PRETRAINED_MODEL = False
-  elif FLAGS.demo_net == 'didi':
-    mc = didi_squeezeDet_config()
-    mc.BATCH_SIZE = 1
-    mc.LOAD_PRETRAINED_MODEL = False
-
-  detector = Detector(mc)
+  detector = Detector(FLAGS.demo_net)
 
   print()
   if FLAGS.do == 'video':
     print('Making video')
-    detector.make_detection_video(bag_file)
+    detector.make_detection_video(bag_file, FLAGS.demo_net)
   elif FLAGS.do == 'tracker':
     print('Trying tracker')
     detector.try_tracker(bag_file)
