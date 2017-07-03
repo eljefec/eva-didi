@@ -140,10 +140,8 @@ def generate_camera_images(bag_file, mc):
   for numpydata in generator:
     im = numpydata.image
     if im is not None:
-      print('im.shape', im.shape)
       width_start = int((im.shape[1] - mc.IMAGE_WIDTH) / 2)
       height_start = (800 - mc.IMAGE_HEIGHT)
-      print('width_start: {}, height_start: {}'.format(width_start, height_start))
       im = im[height_start : height_start + mc.IMAGE_HEIGHT,
               width_start : width_start + mc.IMAGE_WIDTH,
               :]
