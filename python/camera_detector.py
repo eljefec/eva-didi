@@ -1,6 +1,7 @@
 import cv2
 import numpy as np
 import os
+import random
 import yaml
 
 import camera_converter as cc
@@ -8,6 +9,72 @@ import multibag as mb
 import numpystream as ns
 import squeezedet
 import util.traingen
+
+from keras.callbacks import EarlyStopping, ModelCheckpoint
+import keras.layers
+from keras.layers.core import Flatten, Dropout, Lambda
+from keras.layers import Conv2D, Dense, Input
+from keras.layers.pooling import MaxPooling2D
+from keras.models import Model, Sequential
+from keras.optimizers import Adam
+
+INPUT_SHAPE=(6)
+
+CAMERA_ROOT = '/home/eljefec/repo/eva-didi/camera_det'
+MODEL_DIR = os.path.join(CAMERA_ROOT, 'models')
+CHECKPOINT_DIR = os.path.join(CAMERA_ROOT, 'checkpoints')
+HISTORY_DIR = os.path.join(CAMERA_ROOT, 'history')
+
+class ImageBoxToPosePredictor:
+    def __init__(self, model_path):
+        self.model = keras.models.load_model(model_path)
+
+    def predict_pose(self, image_box):
+        prediction = self.model.predict(np.array([image_box]), batch_size=1, verbose=0)
+        return prediction
+
+class CameraDetector:
+    def __init__(self):
+        self.squeezedet = squeezedet.SqueezeDetector(demo_net = 'squeezeDet')
+        self.box_to_pose_predictor = get_latest_predictor()
+
+    def detect_obstacles(self, image):
+        boxes, probs, classes = self.squeezedet.detect(image)
+        found_car = None
+        found_ped = None
+        for box, prob, class_idx in zip(boxes, probs, classes):
+            pose = self.box_to_pose_predictor.predict_pose(box)
+
+            # TODO: Check if correction is needed.
+            correct_global(pose, class_idx)
+
+            if found_car is None and class_idx == CAR_CLASS:
+                found_car = pose
+
+            if found_ped is None and class_idx == PED_CLASS:
+                found_ped = pose
+
+            if found_car is not None and found_ped is not None:
+                break
+        return (found_car, found_ped)
+
+def get_latest_predictor():
+    # model_name = 'model_2017-07-02_18h10m55e40-vl0.49.h5'
+    model_path = os.path.join(CHECKPOINT_DIR, model_name)
+    return ImageBoxToPosePredictor(model_path)
+
+def build_model(dropout):
+    model = Sequential()
+    model.add(BatchNormalization(input_shape = INPUT_SHAPE))
+    model.add(Flatten())
+    model.add(Dropout(dropout))
+    model.add(Dense(64, activation = 'relu'))
+    model.add(Dropout(dropout))
+    model.add(Dense(32, activation = 'relu'))
+    model.add(Dropout(dropout))
+    model.add(Dense(4))
+
+    return model
 
 def try_undistort(desired_count):
     undist = cc.CameraConverter()
@@ -88,6 +155,26 @@ def generate_training_data(bag_file, tracklet_file):
                        np.array([obs.position[0], obs.position[1], obs.position[2], obs.yaw]),
                        im)
 
+def augment_example_unbounded(bbox, label, camera_converter):
+    orig_obj_point = np.array([label[0], label[1], label[2]])
+    orig_obj_img_point = camera_converter.project_point(orig_obj_point)
+
+    obj_horizontal_shift = random.uniform(-0.5, 0.5)
+    new_obj_point = orig_obj_point - np.array([0, -obj_horizontal_shift, 0])
+    new_obj_img_point = camera_converter.project_point(new_obj_point)
+
+    img_horizontal_shift = new_obj_img_point[0] - orig_obj_img_point[0]
+
+    return (bbox + np.array([img_horizontal_shift, 0, 0, 0, 0, 0]),
+            label + np.array([0, -obj_horizontal_shift, 0, 0]))
+
+def augment_example(bbox, label, camera_converter):
+    augmented = augment_example_unbounded(bbox, label, camera_converter)
+    if camera_converter.bbox_is_in_view(augmented[0]):
+        return augmented
+    else:
+        return bbox
+
 def generate_training_data_multi(bag_tracklets):
     for bt in bag_tracklets:
         generator = generate_training_data(bt.bag, bt.tracklet)
@@ -139,9 +226,129 @@ def write_training_data(bag_tracklets, outdir):
 
     print('Finished. Wrote {} examples.'.format(id))
 
+def generate_camera_boxes_dir(train_dir, index_file, augment, infinite = True):
+    camera_converter = cc.CameraConverter()
+    while infinite:
+        ids = []
+        with open(os.path.join(train_dir, index_file), 'r') as f:
+            for id in f:
+                ids.append(int(id))
+
+        bboxdir, labeldir, imagedir = get_bbox_label_dirs(train_dir)
+
+        for id in ids:
+            bbox_path = get_bbox_path(bboxdir, id)
+            bbox = np.loadtxt(bbox_path)
+
+            label_path = get_label_path(labeldir, id)
+            label = np.savetxt(label_path)
+
+            if augment:
+                (bbox, label) = augment_example(bbox, label, camera_converter)
+
+            yield bbox, label
+
+def generate_batches(single_generator, batch_size):
+    bboxes = []
+    labels = []
+    for bbox, label in single_generator:
+        bboxes.append(bbox)
+        labels.append(label)
+
+        if batch_size == len(bboxes):
+            bbox_batch = np.stack(bboxes)
+            label_batch = np.stack(labels)
+
+            bboxes[:] = []
+            labels[:] = []
+
+            yield (bbox_batch, label_batch)
+
+def train_detector(train_dir):
+    batch_size = 128
+
+    generator_validation = generate_batches(
+                                generate_camera_boxes_dir(train_dir, 'val.txt', augment = False),
+                                batch_size)
+
+    generator_train = generate_batches(
+                                generate_camera_boxes_dir(train_dir, 'train.txt', augment = True),
+                                batch_size)
+
+    checkpoint_path = get_model_filename(CHECKPOINT_DIR, suffix = 'e{epoch:02d}-vl{val_loss:.2f}')
+
+    # Set up callbacks. Stop early if the model does not improve. Save model checkpoints.
+    # Source: http://stackoverflow.com/questions/37293642/how-to-tell-keras-stop-training-based-on-loss-value
+    callbacks = [
+        EarlyStopping(monitor='val_loss', patience=4, verbose=1),
+        ModelCheckpoint(checkpoint_path, monitor='val_loss', save_best_only=False, verbose=0),
+    ]
+
+    model = build_model(dropout = 0.4)
+
+    model.summary()
+
+    # Fix error with TF and Keras
+    import tensorflow as tf
+    tf.python.control_flow_ops = tf
+
+    model.compile(optimizer = Adam(lr = 0.0001), loss = 'mse')
+
+    steps_per_epoch = get_size(train_dir, 'train.txt') / batch_size
+    validation_steps = get_size(train_dir, 'val.txt') / batch_size
+
+    hist = model.fit_generator(generator_train,
+                               steps_per_epoch = steps_per_epoch,
+                               epochs = 200,
+                               # Values for quick testing:
+                               # steps_per_epoch = (128 / batch_size),
+                               # epochs = 2,
+                               validation_data = generator_validation,
+                               validation_steps = validation_steps,
+                               callbacks = callbacks)
+    model.save(get_model_filename(MODEL_DIR))
+
+    with open(get_model_filename(HISTORY_DIR, '', 'p'), 'wb') as f:
+        pickle.dump(hist.history, f)
+
+from util import *
+def get_model_filename(directory, suffix = '', ext = 'h5'):
+    model_filename = 'model_{}{}.{}'.format(util.stopwatch.format_now(), suffix, ext)
+    return os.path.join(directory, model_filename)
+
+def try_augmenting_camera_boxes():
+    camera_converter = cc.CameraConverter()
+    bagdir = '/data/bags/didi-round2/release/car/training/suburu_leading_front_left'
+    bt = mb.find_bag_tracklets(bagdir, '/data/tracklets')
+    generator = generate_training_data_multi(bt)
+    count = 0
+    for bbox, label, im in generator:
+        new_bbox, new_label = augment_example(bbox, label, camera_converter)
+        print('bbox', bbox)
+        print('new_bbox', new_bbox)
+        print('label', label)
+        print('new_label', new_label)
+        count += 1
+        if count == 10:
+            return
+
+def make_dir(directory):
+    import os
+    if not os.path.exists(directory):
+        os.makedirs(directory)
+
 if __name__ == '__main__':
+    make_dir(MODEL_DIR)
+    make_dir(CHECKPOINT_DIR)
+    make_dir(HISTORY_DIR)
+
+    # try_augmenting_camera_boxes()
+
     bag_tracklets = mb.find_bag_tracklets('/data/bags/', '/data/tracklets')
-    write_training_data(bag_tracklets, '/home/eljefec/repo/squeezeDet/data/KITTI/camera_train')
+    train_dir = '/home/eljefec/repo/squeezeDet/data/KITTI/camera_train'
+    write_training_data(bag_tracklets, train_dir)
+    train_detector(train_dir)
+
     exit()
 
     import os

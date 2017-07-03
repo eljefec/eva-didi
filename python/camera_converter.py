@@ -17,6 +17,9 @@ def lidar_point_to_camera_origin(point):
 
 class CameraConverter:
     def __init__(self):
+        self.img_width = 1368
+        self.img_height = 1096
+
         ost = read_ost_yaml()
         self.camera_matrix = read_ost_array(ost, 'camera_matrix')
         self.distortion_coefficients = read_ost_array(ost, 'distortion_coefficients')
@@ -44,16 +47,20 @@ class CameraConverter:
         return img_points
 
     def obstacle_is_in_view(self, obs):
-        img_width = 1368
-        img_height = 1096
-
         img_points = self.project_points(obs.get_bbox().transpose())
 
         x_points = img_points[:, 0]
         y_points = img_points[:, 1]
-        x_filt = np.logical_and((x_points >= 0), (x_points < img_width))
-        y_filt = np.logical_and((y_points >= 0), (y_points < img_height))
+        x_filt = np.logical_and((x_points >= 0), (x_points < self.img_width))
+        y_filt = np.logical_and((y_points >= 0), (y_points < self.img_height))
         filter = np.logical_and(x_filt, y_filt)
         indices = np.argwhere(filter).flatten()
 
         return (len(indices) >= 1)
+
+    # bbox must be a camera image bounding box.
+    def bbox_is_in_view(self, bbox):
+        # box is in center form (cx, cy, w, h)
+        half_width = int(bbox[2] / 2)
+        return (bbox[0] + half_width >= 0
+                and bbox[0] - half_width < self.img_width)
