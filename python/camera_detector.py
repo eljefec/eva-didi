@@ -49,7 +49,7 @@ class Undistorter:
 def try_undistort(desired_count):
     undist = Undistorter()
 
-    bagdir = '/data/bags/didi-round2/release/car/training/suburu_leading_front_left'
+    bagdir = '/data/bags/didi-round2/release/car/training/suburu_leading_at_distance'
     bt = mb.find_bag_tracklets(bagdir, '/data/tracklets')
     multi = mb.MultiBagStream(bt, ns.generate_numpystream)
     generator = multi.generate(infinite = False)
@@ -61,7 +61,7 @@ def try_undistort(desired_count):
         im = cv2.cvtColor(im, cv2.COLOR_BGR2RGB)
         undistorted = undist.undistort_image(im)
         if count % 25 == 0:
-            cv2.imwrite('/data/dev/orig_{}.png'.format(count), im)
+            cv2.imwrite('/data/dev/camera/orig_{}.png'.format(count), im)
 
             # Print center.
             img_point = undist.project_point(obs.position)
@@ -72,12 +72,15 @@ def try_undistort(desired_count):
             for img_point in img_points:
                 cv2.circle(undistorted, (int(img_point[0]), int(img_point[1])), radius = 5, color = (0, 255, 0), thickness=2)
 
-            cv2.imwrite('/data/dev/undist_{}.png'.format(count), undistorted)
+            cv2.imwrite('/data/dev/camera/undist_{}.png'.format(count), undistorted)
             output_count += 1
         count += 1
-        if output_count == desired_count:
+        if desired_count is not None and output_count == desired_count:
             return
 
 if __name__ == '__main__':
-    print(read_ost_yaml())
-    try_undistort(5)
+    import os
+    path = '/data/dev/camera'
+    if not os.path.exists(path):
+        os.makedirs('/data/dev/camera')
+    try_undistort(None)
