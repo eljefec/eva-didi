@@ -84,8 +84,6 @@ def generate_training_data(bag_file, tracklet_file):
             if (box is not None and
                 camera_converter.obstacle_is_in_view(obs)):
 
-                print('box', box)
-
                 yield (np.array([box[0], box[1], box[2], box[3], prob, class_idx]),
                        np.array([obs.position[0], obs.position[1], obs.position[2], obs.yaw]),
                        im)
@@ -132,8 +130,8 @@ def write_training_data(bag_tracklets, outdir):
         label_path = get_label_path(labeldir, id)
         np.savetxt(label_path, label)
 
-        image_path = get_image_path(imagedir, id)
-        cv2.imwrite(image_path, im)
+        # image_path = get_image_path(imagedir, id)
+        # cv2.imwrite(image_path, im)
         id += 1
 
         if id % 1000 == 0:
@@ -143,7 +141,7 @@ def write_training_data(bag_tracklets, outdir):
 
 if __name__ == '__main__':
     bag_tracklets = mb.find_bag_tracklets('/data/bags/', '/data/tracklets')
-    write_training_data(bag_tracklets, '/data/camera_train')
+    write_training_data(bag_tracklets, '/home/eljefec/repo/squeezeDet/data/KITTI/camera_train')
     exit()
 
     import os

@@ -56,6 +56,4 @@ class CameraConverter:
         filter = np.logical_and(x_filt, y_filt)
         indices = np.argwhere(filter).flatten()
 
-        print('indices', indices)
-
         return (len(indices) >= 1)
