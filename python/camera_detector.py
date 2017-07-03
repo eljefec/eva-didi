@@ -34,6 +34,13 @@ class Undistorter:
         image_point /= image_point[2]
         return image_point
 
+    def project_points(self, obj_points):
+        count = obj_points.shape[0]
+        img_points = np.zeros((count, 3))
+        for i in range(count):
+            img_points[i] = self.project_point(obj_points[i])
+        return img_points
+
 def try_undistort(desired_count):
     undist = Undistorter()
 
@@ -46,13 +53,20 @@ def try_undistort(desired_count):
     for numpydata in generator:
         im = numpydata.image
         frame_idx, obs = numpydata.obs
+        im = cv2.cvtColor(im, cv2.COLOR_BGR2RGB)
         undistorted = undist.undistort_image(im)
         if count % 25 == 0:
             cv2.imwrite('/data/dev/orig_{}.png'.format(count), im)
 
+            # Print center.
             img_point = undist.project_point(obs.position)
-            print('img_point', img_point)
             cv2.circle(undistorted, (int(img_point[0]), int(img_point[1])), radius = 5, color = (255, 0, 0), thickness=2)
+
+            # Print bbox corners.
+            img_points = undist.project_points(obs.get_bbox().transpose())
+            for img_point in img_points:
+                cv2.circle(undistorted, (int(img_point[0]), int(img_point[1])), radius = 5, color = (0, 255, 0), thickness=2)
+
             cv2.imwrite('/data/dev/undist_{}.png'.format(count), undistorted)
             output_count += 1
         count += 1
