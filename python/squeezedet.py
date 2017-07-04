@@ -74,69 +74,34 @@ def get_model_config(demo_net):
 def generate_detections(bag_file, demo_net, skip_null, tracklet_file = None):
   """Detect image."""
 
-  gpu = 0
+  with SqueezeDetector(demo_net) as det:
 
-  assert demo_net == 'squeezeDet' or demo_net == 'squeezeDet+' \
-         or demo_net == 'didi', \
-      'Selected neural net architecture not supported: {}'.format(demo_net)
-
-  graph = tf.Graph()
-  with graph.as_default():
     mc = get_model_config(demo_net)
     if demo_net == 'squeezeDet':
-      model = SqueezeDet(mc, gpu)
-      checkpoint = '/home/eljefec/repo/squeezeDet/data/model_checkpoints/squeezeDet/model.ckpt-87000'
       input_generator = generate_camera_images(bag_file, mc, tracklet_file)
     elif demo_net == 'squeezeDet+':
-      model = SqueezeDetPlus(mc, gpu)
-      checkpoint = '/home/eljefec/repo/squeezeDet/data/model_checkpoints/squeezeDetPlus/model.ckpt-95000'
       input_generator = generate_camera_images(bag_file, mc, tracklet_file)
     elif demo_net == 'didi':
-      model = SqueezeDet(mc, gpu)
-      checkpoint = '/home/eljefec/repo/squeezeDet/data/model_checkpoints/didi/model.ckpt-42000'
       input_generator = generate_lidar_birdseye(bag_file, mc)
 
-    saver = tf.train.Saver(model.model_params)
-    sess = tf.Session(graph=graph, config=tf.ConfigProto(allow_soft_placement=True))
-    saver.restore(sess, checkpoint)
+    im = None
+    final_boxes = None
+    final_probs = None
+    final_class = None
 
-  im = None
-  final_boxes = None
-  final_probs = None
-  final_class = None
+    frame_count = 0
 
-  frame_count = 0
-
-  for im, token in input_generator:
-    if im is not None:
-      im = im.astype(np.float32, copy=False)
-      input_image = im - mc.BGR_MEANS
-
-      # Detect
-      det_boxes, det_probs, det_class = sess.run(
-          [model.det_boxes, model.det_probs, model.det_class],
-          feed_dict={model.image_input:[input_image]})
-
-      # Filter
-      final_boxes, final_probs, final_class = model.filter_prediction(
-          det_boxes[0], det_probs[0], det_class[0])
-
-      keep_idx    = [idx for idx in range(len(final_probs)) \
-                        if final_probs[idx] > mc.PLOT_PROB_THRESH]
-      final_boxes = [final_boxes[idx] for idx in keep_idx]
-      final_probs = [final_probs[idx] for idx in keep_idx]
-      final_class = [final_class[idx] for idx in keep_idx]
-
-      if skip_null:
+    for im, token in input_generator:
+      if im is not None:
+        (final_boxes, final_probs, final_class) = det.detect(im)
+        if skip_null:
+          yield im, final_boxes, final_probs, final_class, token
+      if not skip_null:
         yield im, final_boxes, final_probs, final_class, token
-    if not skip_null:
-      yield im, final_boxes, final_probs, final_class, token
 
-    frame_count += 1
-    if frame_count % 1000 == 0:
-      print('Processed {} frames.'.format(frame_count))
-
-  sess.close()
+      frame_count += 1
+      if frame_count % 1000 == 0:
+        print('Processed {} frames.'.format(frame_count))
 
 def generate_camera_images(bag_file, mc, tracklet_file):
   camera_converter = cc.CameraConverter()
@@ -173,6 +138,111 @@ def get_filename(bag_file):
   base = os.path.basename(bag_file)
   split = os.path.splitext(base)
   return split[0]
+
+class SqueezeDetector:
+  def __init__(self, demo_net):
+    assert demo_net == 'squeezeDet' or demo_net == 'squeezeDet+' \
+           or demo_net == 'didi', \
+        'Selected neural net architecture not supported: {}'.format(demo_net)
+
+    self.demo_net = demo_net
+    self.mc = None
+    self.model = None
+    self.sess = None
+    self._prepare_graph()
+
+  def __enter__(self):
+    return self
+
+  def __exit__(self, exc_type, exc_val, exc_tb):
+    self.sess.close()
+
+  def _prepare_graph(self):
+    gpu = 0
+
+    graph = tf.Graph()
+    with graph.as_default():
+      self.mc = get_model_config(self.demo_net)
+      if self.demo_net == 'squeezeDet':
+        self.model = SqueezeDet(self.mc, gpu)
+        checkpoint = '/home/eljefec/repo/squeezeDet/data/model_checkpoints/squeezeDet/model.ckpt-87000'
+      elif self.demo_net == 'squeezeDet+':
+        self.model = SqueezeDetPlus(self.mc, gpu)
+        checkpoint = '/home/eljefec/repo/squeezeDet/data/model_checkpoints/squeezeDetPlus/model.ckpt-95000'
+      elif self.demo_net == 'didi':
+        self.model = SqueezeDet(self.mc, gpu)
+        checkpoint = '/home/eljefec/repo/squeezeDet/data/model_checkpoints/didi/model.ckpt-42000'
+
+      saver = tf.train.Saver(self.model.model_params)
+      self.sess = tf.Session(graph=graph, config=tf.ConfigProto(allow_soft_placement=True))
+      saver.restore(self.sess, checkpoint)
+
+  def detect(self, im):
+    im = im.astype(np.float32, copy=False)
+    input_image = im - self.mc.BGR_MEANS
+
+    # Detect
+    det_boxes, det_probs, det_class = self.sess.run(
+        [self.model.det_boxes, self.model.det_probs, self.model.det_class],
+        feed_dict={self.model.image_input:[input_image]})
+
+    # Filter
+    final_boxes, final_probs, final_class = self.model.filter_prediction(
+        det_boxes[0], det_probs[0], det_class[0])
+
+    keep_idx    = [idx for idx in range(len(final_probs)) \
+                      if final_probs[idx] > self.mc.PLOT_PROB_THRESH]
+    final_boxes = [final_boxes[idx] for idx in keep_idx]
+    final_probs = [final_probs[idx] for idx in keep_idx]
+    final_class = [final_class[idx] for idx in keep_idx]
+
+    return final_boxes, final_probs, final_class
+
+def correct_global(global_box, class_idx):
+  # Slight correction needed due to cropping of birds eye image.
+  if class_idx == CAR_CLASS:
+    global_box[0] += 0.365754455
+    global_box[1] += 0.368273374
+  elif class_idx == PED_CLASS:
+    global_box[0] += 0.191718419
+    global_box[1] += 0.154991700
+
+class BirdsEyeDetector:
+  def __init__(self):
+    self.squeezedet = SqueezeDetector(demo_net = 'didi')
+    self.rotation_detector = rd.get_latest_detector()
+
+  def detect(self, lidar):
+    birdseye = ld.lidar_to_birdseye(lidar, ld.slice_config())
+
+    mc = self.squeezedet.mc
+    im = ci.crop_image(birdseye,
+                       (mc.IMAGE_WIDTH + 1, mc.IMAGE_HEIGHT + 1, 3),
+                       (mc.IMAGE_WIDTH, mc.IMAGE_HEIGHT, 3))
+
+    found_car = None
+    found_ped = None
+    boxes, probs, classes = self.squeezedet.detect(im)
+    # Assume decreasing order of probability
+    for box, prob, class_idx in zip(boxes, probs, classes):
+      global_box = ld.birdseye_to_global(box, ld.slice_config())
+
+      car_box = rd.get_birdseye_box(lidar, (global_box[0], global_box[1]))
+      predicted_yaw = self.rotation_detector.detect_rotation(car_box)
+
+      correct_global(global_box, class_idx)
+
+      pose = np.array([global_box[0], global_box[1], -0.9, predicted_yaw])
+
+      if found_car is None and class_idx == CAR_CLASS:
+        found_car = pose
+
+      if found_ped is None and class_idx == PED_CLASS:
+        found_ped = pose
+
+      if found_car is not None and found_ped is not None:
+        break
+    return (found_car, found_ped)
 
 class Detector:
   def __init__(self, demo_net):
@@ -245,15 +315,6 @@ class Detector:
       print('classes', classes)
 
   def gen_tracklet(self, bag_file, include_car, include_ped):
-
-    def correct_global(global_box, class_idx):
-      # Slight correction needed due to cropping of birds eye image.
-      if class_idx == CAR_CLASS:
-        global_box[0] += 0.365754455
-        global_box[1] += 0.368273374
-      elif class_idx == PED_CLASS:
-        global_box[0] += 0.191718419
-        global_box[1] += 0.154991700
 
     def make_pose(x, y, rz):
       # Estimate tz from histogram.
