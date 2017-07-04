@@ -3,20 +3,34 @@ from filterpy.common import Q_discrete_white_noise
 import math
 import numpy as np
 
+class State:
+    def __init__(self, state):
+        self.x = state[0]
+        self.y = state[1]
+        self.v = state[2]
+        self.yaw = state[3]
+        self.yawd = state[4]
+
 class KalmanFilter:
     def __init__(self):
+        self.prev_t = None
         self.filter = create_filter()
 
-    def predict(self, dt):
-        self.filter.predict(dt)
+    def predict(self, t):
+        if self.prev_t is not None:
+            dt = t - self.prev_t
+            self.filter.predict(dt)
+        self.prev_t = t
 
-        self.x = self.filter.x
+    def update(self, z, t):
+        if self.prev_t is not None:
+            dt = t - self.prev_t
+            self.filter.predict(dt)
+            self.filter.update(z)
+        self.prev_t = t
 
-    def update(self, z, dt):
-        self.filter.predict(dt)
-        self.filter.update(z)
-
-        self.x = self.filter.x
+    def get_state(self):
+        return State(self.filter.x)
 
 def normalize_angle(angle):
     while angle > math.pi:
