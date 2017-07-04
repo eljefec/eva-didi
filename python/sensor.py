@@ -4,6 +4,7 @@ import lidarbag as lb
 import my_bag_utils as bu
 import numpy
 import Queue
+import radar_driver
 import rosbag
 from threading import Thread
 import time
@@ -138,7 +139,6 @@ def generate_msgs_bag(bag_file, topics):
 
         for i in range(msg_count):
             topic, msg, t  = messages.next()
-            assert(t == msg.header.stamp)
             yield msg
 
 class BagMsgQueue:
@@ -184,20 +184,21 @@ def generate_sensormsgs(bag_file):
     assert (not lb.conversion_is_needed(bag_file)), 'Conversion is needed for {}'.format(bag_file)
 
     if lb.bag_contains_points(bag_file):
-        topics = ['/image_raw', '/velodyne_points']
+        topics = ['/image_raw', '/velodyne_points', '/radar/tracks']
         return generate_msgs_bag(bag_file, topics)
     else:
         points_bag = lb.get_points_filename(bag_file)
 
         bag_msg_queues = []
-        bag_msg_queues.append(BagMsgQueue(bag_file, ['/image_raw']))
+        bag_msg_queues.append(BagMsgQueue(bag_file, ['/image_raw', '/radar/tracks']))
         bag_msg_queues.append(BagMsgQueue(points_bag, ['/velodyne_points']))
 
         return generate_msgs_multibag(bag_msg_queues)
 
 if __name__ == '__main__':
     msg_counts = dict()
-    generator = generate_sensormsgs('/data/didi/didi-round1/Didi-Release-2/Data/1/10.bag')
+    bag = '/data/bags/didi-round2/release/car/training/suburu_leading_front_left/suburu11.bag'
+    generator = generate_sensormsgs(bag)
     for msg in generator:
         # print('DEBUG: Got msg. {0} {1} {2}'.format(msg.header.stamp, msg.header.seq, msg.header.frame_id))
         key = msg.header.frame_id
@@ -214,7 +215,7 @@ if __name__ == '__main__':
 
     for i in range(2):
         msg_counts = dict()
-        msg_queue.start_read('/data/didi/didi-round1/Didi-Release-2/Data/1/10.bag', 5)
+        msg_queue.start_read('/data/bags/didi-round1/Didi-Release-2/Data/1/10.bag', 5)
         while not msg_queue.empty():
             msg = msg_queue.next()
             if msg is not None:

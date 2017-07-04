@@ -31,10 +31,11 @@ class Pose:
                         dtype=float)
 
 class TrainMsg:
-    def __init__(self, obs, image, lidar):
+    def __init__(self, obs, image, lidar, radar):
         self.obs = obs
         self.image = image
         self.lidar = lidar
+        self.radar = radar
 
         self._check_delay()
 
@@ -68,6 +69,7 @@ class OrderChecker:
 def generate_syncedmsgs(msg_generator):
     prev_image = None
     prev_lidar = None
+    prev_radar = None
     while True:
         # Iterate to next camera message.
         msg = None
@@ -80,7 +82,9 @@ def generate_syncedmsgs(msg_generator):
                     prev_image = msg
                 elif msg.header.frame_id == 'velodyne':
                     prev_lidar = msg
-        yield prev_image, prev_lidar
+                else:
+                    prev_radar = msg
+        yield prev_image, prev_lidar, prev_radar
 
 # tracklet_file is allowed to be None
 def generate_trainmsgs(bag_file, tracklet_file):
@@ -100,13 +104,13 @@ def generate_trainmsgs(bag_file, tracklet_file):
     synced_generator = generate_syncedmsgs(msg_generator)
 
     if obs_generator is None:
-        for img, lidar in synced_generator:
-            sample = TrainMsg(None, img, lidar)
+        for img, lidar, radar in synced_generator:
+            sample = TrainMsg(None, img, lidar, radar)
             order_checker.check_sample(sample)
             yield sample
     else:
-        for obs, (img, lidar) in itertools.izip(obs_generator, synced_generator):
-            sample = TrainMsg(obs, img, lidar)
+        for obs, (img, lidar, radar) in itertools.izip(obs_generator, synced_generator):
+            sample = TrainMsg(obs, img, lidar, radar)
             order_checker.check_sample(sample)
             yield sample
 
@@ -175,6 +179,15 @@ class FrameStream:
         self.order_checker.check_sample(sample)
 
         return sample
+
+def try_drawing_radar():
+    bag_file = '/data/bags/didi-round2/release/car/training/suburu_leading_front_left/suburu11.bag'
+
+    msg_generator = sensor.generate_sensormsgs(bag_file)
+    synced_generator = generate_syncedmsgs(msg_generator)
+
+    for image, lidar, radar in synced_generator:
+        print('radar', radar)
 
 if __name__ == '__main__':
     samples = []

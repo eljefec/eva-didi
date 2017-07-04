@@ -4,10 +4,11 @@ import numpy as np
 import sensor_msgs.point_cloud2 as pc2
 
 class NumpyData:
-    def __init__(self, obs, image, lidar):
+    def __init__(self, obs, image, lidar, radar):
         self.obs = obs
         self.image = image
         self.lidar = lidar
+        self.radar = radar
 
     def __str__(self):
         return 'image.shape: {}, image.type: {}, lidar shape: {} type: {}'.format(
@@ -30,7 +31,7 @@ def generate_numpystream(bag_file, tracklet_file):
 
         imagemsg = image.ImageMsg(frame.image)
 
-        yield NumpyData(frame.obs, imagemsg.bgr, points)
+        yield NumpyData(frame.obs, imagemsg.bgr, points, frame.radar)
 
 if __name__ == '__main__':
     generator = generate_numpystream('/data/bags/didi-round1/Didi-Release-2/Data/1/3.bag', '/data/tracklets/didi-round1_Didi-Release-2_Data_1-3/tracklet_labels.xml')

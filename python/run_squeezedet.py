@@ -9,6 +9,7 @@ import time
 import sys
 import os
 import glob
+import math
 
 import moviepy.editor as mpy
 import numpy as np
@@ -69,13 +70,13 @@ def generate_detections(bag_file, demo_net, skip_null, tracklet_file = None):
 
     frame_count = 0
 
-    for im, token in input_generator:
+    for im, token, radar in input_generator:
       if im is not None:
         (final_boxes, final_probs, final_class) = det.detect(im)
         if skip_null:
-          yield im, final_boxes, final_probs, final_class, token
+          yield im, final_boxes, final_probs, final_class, token, radar
       if not skip_null:
-        yield im, final_boxes, final_probs, final_class, token
+        yield im, final_boxes, final_probs, final_class, token, radar
 
       frame_count += 1
       if frame_count % 1000 == 0:
@@ -98,6 +99,7 @@ def generate_lidar_birdseye(bag_file, mc):
   generator = ns.generate_numpystream(bag_file, tracklet_file = None)
   for numpydata in generator:
     lidar = numpydata.lidar
+    radar = numpydata.radar
     if lidar is not None:
       birdseye = ld.lidar_to_birdseye(lidar, ld.slice_config())
 
@@ -105,7 +107,7 @@ def generate_lidar_birdseye(bag_file, mc):
                          (mc.IMAGE_WIDTH + 1, mc.IMAGE_HEIGHT + 1, 3),
                          (mc.IMAGE_WIDTH, mc.IMAGE_HEIGHT, 3))
     # Must yield item for each frame in generator.
-    yield im, lidar
+    yield im, lidar, radar
 
 def get_filename(bag_file):
   base = os.path.basename(bag_file)
@@ -127,7 +129,27 @@ class Detector:
     video_maker = video.VideoMaker(FLAGS.out_dir)
     generator = generate_detections(bag_file, demo_net = demo_net, skip_null = True)
 
-    for im, boxes, probs, classes, lidar in generator:
+    for im, boxes, probs, classes, lidar, radar in generator:
+      print('radar', radar)
+      print('len radar', len(radar.tracks))
+      for track in radar.tracks:
+        radians = math.radians(track.angle)
+        radar_x = track.range * math.cos(radians)
+        # Correct for radar sensor location relative to lidar.
+        lidar_x = radar_x + 2.2506
+        lidar_y = track.range * math.sin(radians)
+        lidar_y = -lidar_y
+        lidar = np.array([[lidar_x, lidar_y, 0]])
+        birdseye = ld.lidar_to_birdseye(lidar, ld.slice_config(), return_points = True)
+
+        if len(birdseye) > 0:
+          img_x = birdseye[0][0]
+          img_y = birdseye[0][1]
+
+          cv2.circle(im, (img_x, img_y), radius = 3, color = (0, 0, 255))
+          font = cv2.FONT_HERSHEY_SIMPLEX
+          c = (0, 0, 255)
+          cv2.putText(im, str(track.number) + ' ' + str(track.status), (img_x - 3, img_y + 3), font, 0.3, c, 1)
       train._draw_box(
           im, boxes,
           [self.mc.CLASS_NAMES[idx]+': (%.2f)'% prob \
