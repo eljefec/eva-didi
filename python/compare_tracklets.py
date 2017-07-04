@@ -2,8 +2,9 @@ import numpy as np
 import parse_tracklet as pt
 
 def filter_diffs(diffs):
-    abs_diffs = np.absolute(diffs)
-    return abs_diffs[abs_diffs < 2]
+    diffs = diffs[diffs > -2]
+    diffs = diffs[diffs < 2]
+    return diffs
 
 def stats(unfiltered_diff):
     diff = filter_diffs(unfiltered_diff)
@@ -52,8 +53,8 @@ def compare_tracklet_files(path1, path2):
 
 if __name__ == '__main__':
     compare_tracklet_files('/data/tracklets/didi-round2_release_pedestrian-ped_train/tracklet_labels.xml',
-                           '/data/out/rotation/ped_train.xml')
+                           '/data/out/err_correction/ped_train.xml')
     compare_tracklet_files('/data/tracklets/didi-round2_release_car_training_bmw_following_long-bmw02/tracklet_labels.xml',
-                           '/data/out/rotation/bmw02.xml')
+                           '/data/out/err_correction/bmw02.xml')
     compare_tracklet_files('/data/tracklets/didi-round2_release_car_training_suburu_leading_front_left-suburu11/tracklet_labels.xml',
-                           '/data/out/rotation/suburu11.xml')
+                           '/data/out/err_correction/suburu11.xml')
