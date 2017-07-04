@@ -65,12 +65,12 @@ def predict_tracklet(bag_file, include_car, include_ped, enable_birdseye, enable
         if car is not None:
             car_pose = make_pose(car[0], car[1], car[3])
             prev_car_pose = car_pose
-        car_tracklet.poses.append(car_pose)
+        car_tracklet.poses.append(prev_car_pose)
 
         if ped is not None:
             ped_pose = make_pose(ped[0], ped[1], ped[3])
             prev_ped_pose = ped_pose
-        ped_tracklet.poses.append(ped_pose)
+        ped_tracklet.poses.append(prev_ped_pose)
 
     tracklet_collection = generate_tracklet.TrackletCollection()
     if include_car:
