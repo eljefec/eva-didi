@@ -21,6 +21,7 @@ tf.app.flags.DEFINE_boolean('include_car', False, """Whether to include car in t
 tf.app.flags.DEFINE_boolean('include_ped', False, """Whether to include pedestrian in tracklet.""")
 tf.app.flags.DEFINE_boolean('enable_birdseye', False, """Whether to enable birdseye detection.""")
 tf.app.flags.DEFINE_boolean('enable_camera', False, """Whether to enable camera detection.""")
+tf.app.flags.DEFINE_boolean('enable_kalman', False, """Whether to enable unscented kalman filter.""")
 
 def generate_predictions(pipeline, bag_file):
     generator = sensor.generate_sensormsgs(bag_file)
@@ -38,8 +39,8 @@ def generate_predictions(pipeline, bag_file):
             points = np.array(list(points))
             pipeline.detect_lidar(points, t_seconds)
 
-def predict_tracklet(bag_file, include_car, include_ped, enable_birdseye, enable_camera):
-    pipeline = dp.DetectionPipeline(enable_birdseye, enable_camera)
+def predict_tracklet(bag_file, include_car, include_ped, enable_birdseye, enable_camera, enable_kalman):
+    pipeline = dp.DetectionPipeline(enable_birdseye, enable_camera, enable_kalman)
 
     def make_pose(x, y, rz):
       # Estimate tz from histogram.
@@ -100,7 +101,7 @@ def process_bag(bag_file):
         print('Must enable one or more of the detectors.')
         exit()
 
-    predict_tracklet(bag_file, FLAGS.include_car, FLAGS.include_ped, FLAGS.enable_birdseye, FLAGS.enable_camera)
+    predict_tracklet(bag_file, FLAGS.include_car, FLAGS.include_ped, FLAGS.enable_birdseye, FLAGS.enable_camera, FLAGS.enable_kalman)
 
 def main(argv=None):
     if not tf.gfile.Exists(FLAGS.out_dir):
