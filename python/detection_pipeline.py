@@ -26,21 +26,31 @@ class DetectionPipeline:
         self.prev_car = np.array([0., 0., -0.9, 0.])
         self.prev_ped = np.array([0., 0., -0.9, 0.])
 
+        self.lidar_lost_car = False
+        self.lidar_lost_ped = False
+
     def detect_lidar(self, lidar, t):
         if self.birdseye_detector is not None:
             car, ped = self.birdseye_detector.detect(lidar)
             self._add_detection(car, ped, t)
+            self.lidar_lost_car = (car is None)
+            self.lidar_lost_ped = (ped is None)
 
     def detect_image(self, image, t):
         if self.camera_detector is not None:
             car, ped = self.camera_detector.detect(image)
-            self._add_detection(car, ped, t)
+            if self.lidar_lost_car and self.lidar_lost_ped:
+                self._add_detection(car, ped, t)
 
     def _add_detection(self, car, ped, t):
         if self.car_kf is not None:
-            if car is not None:
+            if car is None:
+                self.car_kf.predict(t)
+            else:
                 self.car_kf.update(car[0:2], t)
-            if ped is not None:
+            if ped is None:
+                self.ped_kf.predict(t)
+            else:
                 self.ped_kf.update(ped[0:2], t)
 
         self.prev_car = car
