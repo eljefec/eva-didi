@@ -102,15 +102,7 @@ def generate_training_data(multi, outdir):
 
         id += 1
 
-    util.traingen.write_train_val(id)
-
-def get_size(train_dir, index_file):
-    fullpath = os.path.join(train_dir, index_file)
-    ids = []
-    with open(fullpath, 'r') as f:
-        for id in f:
-            ids.append(id)
-    return len(ids)
+    util.traingen.write_train_val(outdir, id)
 
 def rotate_image(img, radians):
     (rows, cols, channels) = img.shape
@@ -224,8 +216,8 @@ def train_rotation_detector(train_dir):
 
     model.compile(optimizer = Adam(lr = 0.0001), loss = 'mse')
 
-    steps_per_epoch = get_size(train_dir, 'train.txt') / batch_size
-    validation_steps = get_size(train_dir, 'val.txt') / batch_size
+    steps_per_epoch = util.traingen.get_size(train_dir, 'train.txt') / batch_size
+    validation_steps = util.traingen.get_size(train_dir, 'val.txt') / batch_size
 
     hist = model.fit_generator(generator_train,
                                steps_per_epoch = steps_per_epoch,

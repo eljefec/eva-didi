@@ -16,9 +16,10 @@ from keras.layers.core import Flatten, Dropout, Lambda
 from keras.layers import Conv2D, Dense, Input
 from keras.layers.pooling import MaxPooling2D
 from keras.models import Model, Sequential
+from keras.layers.normalization import BatchNormalization
 from keras.optimizers import Adam
 
-INPUT_SHAPE=(6)
+INPUT_SHAPE=(6,)
 
 CAMERA_ROOT = '/home/eljefec/repo/eva-didi/camera_det'
 MODEL_DIR = os.path.join(CAMERA_ROOT, 'models')
@@ -66,11 +67,14 @@ def get_latest_predictor():
 def build_model(dropout):
     model = Sequential()
     model.add(BatchNormalization(input_shape = INPUT_SHAPE))
-    model.add(Flatten())
     model.add(Dropout(dropout))
     model.add(Dense(64, activation = 'relu'))
     model.add(Dropout(dropout))
-    model.add(Dense(32, activation = 'relu'))
+    model.add(Dense(16, activation = 'relu'))
+    model.add(Dropout(dropout))
+    model.add(Dense(16, activation = 'relu'))
+    model.add(Dropout(dropout))
+    model.add(Dense(16, activation = 'relu'))
     model.add(Dropout(dropout))
     model.add(Dense(4))
 
@@ -173,7 +177,7 @@ def augment_example(bbox, label, camera_converter):
     if camera_converter.bbox_is_in_view(augmented[0]):
         return augmented
     else:
-        return bbox
+        return bbox, label
 
 def generate_training_data_multi(bag_tracklets):
     for bt in bag_tracklets:
@@ -226,6 +230,8 @@ def write_training_data(bag_tracklets, outdir):
 
     print('Finished. Wrote {} examples.'.format(id))
 
+    util.traingen.write_train_val(id)
+
 def generate_camera_boxes_dir(train_dir, index_file, augment, infinite = True):
     camera_converter = cc.CameraConverter()
     while infinite:
@@ -241,7 +247,7 @@ def generate_camera_boxes_dir(train_dir, index_file, augment, infinite = True):
             bbox = np.loadtxt(bbox_path)
 
             label_path = get_label_path(labeldir, id)
-            label = np.savetxt(label_path)
+            label = np.loadtxt(label_path)
 
             if augment:
                 (bbox, label) = augment_example(bbox, label, camera_converter)
@@ -294,8 +300,8 @@ def train_detector(train_dir):
 
     model.compile(optimizer = Adam(lr = 0.0001), loss = 'mse')
 
-    steps_per_epoch = get_size(train_dir, 'train.txt') / batch_size
-    validation_steps = get_size(train_dir, 'val.txt') / batch_size
+    steps_per_epoch = util.traingen.get_size(train_dir, 'train.txt') / batch_size
+    validation_steps = util.traingen.get_size(train_dir, 'val.txt') / batch_size
 
     hist = model.fit_generator(generator_train,
                                steps_per_epoch = steps_per_epoch,
@@ -342,11 +348,12 @@ if __name__ == '__main__':
     make_dir(CHECKPOINT_DIR)
     make_dir(HISTORY_DIR)
 
+    train_dir = '/home/eljefec/repo/squeezeDet/data/KITTI/camera_train'
+    util.traingen.write_train_val(train_dir, 29026)
     # try_augmenting_camera_boxes()
 
-    bag_tracklets = mb.find_bag_tracklets('/data/bags/', '/data/tracklets')
-    train_dir = '/home/eljefec/repo/squeezeDet/data/KITTI/camera_train'
-    write_training_data(bag_tracklets, train_dir)
+    # bag_tracklets = mb.find_bag_tracklets('/data/bags/', '/data/tracklets')
+    # write_training_data(bag_tracklets, train_dir)
     train_detector(train_dir)
 
     exit()

@@ -3,10 +3,18 @@ from __future__ import print_function
 import numpy as np
 import os
 
+def get_size(train_dir, index_file):
+    fullpath = os.path.join(train_dir, index_file)
+    ids = []
+    with open(fullpath, 'r') as f:
+        for id in f:
+            ids.append(id)
+    return len(ids)
+
 def get_example_path(dir, id, ext):
     return os.path.join(dir, '{:06d}.{}'.format(id, ext))
 
-def write_train_val(count):
+def write_train_val(outdir, count):
     idx = []
     with open(os.path.join(outdir, 'trainval.txt'), 'w') as f:
         for i in range(count):
