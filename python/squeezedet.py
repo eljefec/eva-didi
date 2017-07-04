@@ -7,11 +7,20 @@ import tensorflow as tf
 
 from config import *
 from nets import *
+import camera_converter as cc
 import train
 import utils.util
 
 CAR_CLASS = 0
 PED_CLASS = 1
+
+def undistort_and_crop(im, camera_converter, mc):
+  im = camera_converter.undistort_image(im)
+  width_start = int((im.shape[1] - mc.IMAGE_WIDTH) / 2)
+  height_start = (800 - mc.IMAGE_HEIGHT)
+  return im[height_start : height_start + mc.IMAGE_HEIGHT,
+            width_start : width_start + mc.IMAGE_WIDTH,
+            :]
 
 def get_model_config(demo_net):
   assert demo_net == 'squeezeDet' or demo_net == 'squeezeDet+' \
@@ -44,6 +53,7 @@ class SqueezeDetector:
     self.model = None
     self.sess = None
     self._prepare_graph()
+    self.camera_converter = cc.CameraConverter()
 
   def __enter__(self):
     return self
@@ -91,6 +101,9 @@ class SqueezeDetector:
     final_class = [final_class[idx] for idx in keep_idx]
 
     return final_boxes, final_probs, final_class
+
+  def undistort_and_crop(self, im):
+    return undistort_and_crop(im, self.camera_converter, self.mc)
 
 def correct_global(global_box, class_idx):
   # Slight correction needed due to cropping of birds eye image.

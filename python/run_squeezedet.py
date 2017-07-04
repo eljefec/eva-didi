@@ -89,12 +89,7 @@ def generate_camera_images(bag_file, mc, tracklet_file):
     im = numpydata.image
     obs = numpydata.obs
     if im is not None:
-      im = camera_converter.undistort_image(im)
-      width_start = int((im.shape[1] - mc.IMAGE_WIDTH) / 2)
-      height_start = (800 - mc.IMAGE_HEIGHT)
-      im = im[height_start : height_start + mc.IMAGE_HEIGHT,
-              width_start : width_start + mc.IMAGE_WIDTH,
-              :]
+      im = sd.undistort_and_crop(im, camera_converter, mc)
     # Must yield item for each frame in generator.
     yield im, obs
 

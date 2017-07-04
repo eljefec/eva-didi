@@ -1,13 +1,14 @@
 import cv2
 import numpy as np
 import os
+import pickle
 import random
 import yaml
 
 import camera_converter as cc
 import multibag as mb
 import numpystream as ns
-import squeezedet
+import squeezedet as sd
 import util.traingen
 
 from keras.callbacks import EarlyStopping, ModelCheckpoint
@@ -30,29 +31,38 @@ class ImageBoxToPosePredictor:
     def __init__(self, model_path):
         self.model = keras.models.load_model(model_path)
 
-    def predict_pose(self, image_box):
-        prediction = self.model.predict(np.array([image_box]), batch_size=1, verbose=0)
-        return prediction
+    def predict_pose(self, image_box, prob, class_idx):
+        input = np.array([[image_box[0],
+                          image_box[1],
+                          image_box[2],
+                          image_box[3],
+                          prob,
+                          class_idx]])
+
+        prediction = self.model.predict(input, batch_size=1, verbose=0)
+        return prediction[0]
 
 class CameraDetector:
     def __init__(self):
-        self.squeezedet = squeezedet.SqueezeDetector(demo_net = 'squeezeDet')
+        self.squeezedet = sd.SqueezeDetector(demo_net = 'squeezeDet')
         self.box_to_pose_predictor = get_latest_predictor()
+        self.camera_converter = cc.CameraConverter()
 
-    def detect_obstacles(self, image):
+    def detect(self, image):
+        image = self.squeezedet.undistort_and_crop(image)
         boxes, probs, classes = self.squeezedet.detect(image)
         found_car = None
         found_ped = None
         for box, prob, class_idx in zip(boxes, probs, classes):
-            pose = self.box_to_pose_predictor.predict_pose(box)
+            pose = self.box_to_pose_predictor.predict_pose(box, prob, class_idx)
 
             # TODO: Check if correction is needed.
-            correct_global(pose, class_idx)
+            # correct_global(pose, class_idx)
 
-            if found_car is None and class_idx == CAR_CLASS:
+            if found_car is None and class_idx == sd.CAR_CLASS:
                 found_car = pose
 
-            if found_ped is None and class_idx == PED_CLASS:
+            if found_ped is None and class_idx == sd.PED_CLASS:
                 found_ped = pose
 
             if found_car is not None and found_ped is not None:
@@ -60,7 +70,7 @@ class CameraDetector:
         return (found_car, found_ped)
 
 def get_latest_predictor():
-    # model_name = 'model_2017-07-02_18h10m55e40-vl0.49.h5'
+    model_name = 'model_2017-07-03_18h03m23e82-vl77.78.h5'
     model_path = os.path.join(CHECKPOINT_DIR, model_name)
     return ImageBoxToPosePredictor(model_path)
 
@@ -113,7 +123,7 @@ def try_undistort(desired_count):
             return
 
 def generate_top_boxes(bag_file, tracklet_file):
-    generator = squeezedet.generate_detections(bag_file, demo_net = 'squeezeDet', skip_null = True, tracklet_file = tracklet_file)
+    generator = sd.generate_detections(bag_file, demo_net = 'squeezeDet', skip_null = True, tracklet_file = tracklet_file)
     for im, boxes, probs, classes, obs in generator:
       car_found = False
       ped_found = False
@@ -124,11 +134,11 @@ def generate_top_boxes(bag_file, tracklet_file):
           and probs is not None and classes is not None):
         # Assume decreasing order of probability
         for box, prob, class_idx in zip(boxes, probs, classes):
-          if not car_found and class_idx == squeezedet.CAR_CLASS:
+          if not car_found and class_idx == sd.CAR_CLASS:
             # box is in center form (cx, cy, w, h)
             top_car = (box, prob, class_idx)
             car_found = True
-          if not ped_found and class_idx == squeezedet.PED_CLASS:
+          if not ped_found and class_idx == sd.PED_CLASS:
             top_ped = (box, prob, class_idx)
             ped_found = True
 
@@ -138,7 +148,7 @@ def generate_top_boxes(bag_file, tracklet_file):
       yield (top_car, top_ped, obs, im)
 
 def generate_training_data(bag_file, tracklet_file):
-    mc = squeezedet.get_model_config(demo_net = 'squeezeDet')
+    mc = sd.get_model_config(demo_net = 'squeezeDet')
     camera_converter = cc.CameraConverter()
 
     generator = generate_top_boxes(bag_file, tracklet_file)
@@ -286,7 +296,7 @@ def train_detector(train_dir):
     # Set up callbacks. Stop early if the model does not improve. Save model checkpoints.
     # Source: http://stackoverflow.com/questions/37293642/how-to-tell-keras-stop-training-based-on-loss-value
     callbacks = [
-        EarlyStopping(monitor='val_loss', patience=4, verbose=1),
+        EarlyStopping(monitor='val_loss', patience=7, verbose=1),
         ModelCheckpoint(checkpoint_path, monitor='val_loss', save_best_only=False, verbose=0),
     ]
 
@@ -298,14 +308,14 @@ def train_detector(train_dir):
     import tensorflow as tf
     tf.python.control_flow_ops = tf
 
-    model.compile(optimizer = Adam(lr = 0.0001), loss = 'mse')
+    model.compile(optimizer = Adam(lr = 0.00001), loss = 'mse')
 
     steps_per_epoch = util.traingen.get_size(train_dir, 'train.txt') / batch_size
     validation_steps = util.traingen.get_size(train_dir, 'val.txt') / batch_size
 
     hist = model.fit_generator(generator_train,
                                steps_per_epoch = steps_per_epoch,
-                               epochs = 200,
+                               epochs = 1000,
                                # Values for quick testing:
                                # steps_per_epoch = (128 / batch_size),
                                # epochs = 2,
