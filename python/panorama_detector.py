@@ -1,6 +1,8 @@
 import cv2
+import math
 import numpy as np
 import os
+import random
 
 import crop_images as ci
 import generate_kitti
@@ -11,6 +13,74 @@ import numpystream as ns
 import util.traingen
 import util.stopwatch
 
+OLD_SHAPE = (38, 901, 3)
+NEW_SHAPE = (48, 912, 3)
+
+def rotate(xy, rot):
+    x = xy[0]
+    y = xy[1]
+    xy[0] = x * math.cos(rot) - y * math.sin(rot)
+    xy[1] = x * math.sin(rot) + y * math.cos(rot)
+
+def calc_width_change(bbox_orig, bbox_rotated):
+    diff_orig = bbox_orig[1] - bbox_orig[0]
+    diff_rotated = bbox_rotated[1] - bbox_rotated[0]
+
+    return diff_rotated[0] - diff_orig[0]
+
+def rotation_is_safe(obs, rot):
+    bbox_points_orig = ld.lidar_to_panorama(obs.get_bbox_noncached().transpose(), return_points = True)
+    rotate(obs.position, rot)
+    bbox_points_rotated = ld.lidar_to_panorama(obs.get_bbox_noncached().transpose(), return_points = True)
+    rotate(obs.position, -rot)
+
+    bbox_orig = summarize_bbox(bbox_points_orig)
+    bbox_rotated = summarize_bbox(bbox_points_rotated)
+
+    width_change = calc_width_change(bbox_orig, bbox_rotated)
+    if width_change > 5:
+        return False
+    else:
+        return True
+
+def augment_example(lidar, obs):
+    rot = random.uniform(-math.pi, math.pi)
+
+    if not rotation_is_safe(obs, rot):
+        return
+
+    rotate(obs.position, rot)
+
+    for i in range(lidar.shape[0]):
+        rotate(lidar[i], rot)
+
+def resize_bbox(bbox, old_shape, new_shape):
+    bbox[0] = bbox[0] * new_shape[1] / old_shape[1]
+    bbox[1] = bbox[1] * new_shape[0] / old_shape[0]
+
+def resize(im, bbox):
+    old_shape = OLD_SHAPE
+    new_shape = NEW_SHAPE
+
+    assert(im.shape == old_shape), 'Shape was {}'.format(im.shape)
+
+    # Resize for squeezeDet, which requires dimensions that are multiples of 16.
+    im = cv2.resize(im, (new_shape[1], new_shape[0]))
+
+    assert(im.shape == new_shape), 'Shape was {}'.format(im.shape)
+
+    for i in range(bbox.shape[0]):
+        resize_bbox(bbox[i], old_shape, new_shape)
+
+    return im, bbox
+
+def summarize_bbox(bbox):
+    bbox = bbox.transpose()
+    bbox = np.array([[np.min(bbox[0]), np.min(bbox[1])],
+                     [np.max(bbox[0]), np.max(bbox[1])]
+                    ])
+    return bbox
+
 def generate_panoramas(numpydata_generator):
     for numpydata in numpydata_generator:
         lidar = numpydata.lidar
@@ -18,20 +88,15 @@ def generate_panoramas(numpydata_generator):
         if lidar is not None:
             frame_idx, obs = obs
 
+            augment_example(lidar, obs)
+
             im = ld.lidar_to_panorama(lidar)
-            bbox = ld.lidar_to_panorama(obs.get_bbox().transpose(), return_points = True)
+            bbox_points = ld.lidar_to_panorama(obs.get_bbox().transpose(), return_points = True)
 
-            bbox = bbox.transpose()
-            bbox = np.array([[np.min(bbox[0]), np.min(bbox[1])],
-                             [np.max(bbox[0]), np.max(bbox[1])]
-                            ])
-
-            assert(im.shape == (38, 901, 3)), 'Shape was {}'.format(im.shape)
+            bbox = summarize_bbox(bbox_points)
 
             # Resize for squeezeDet, which requires dimensions that are multiples of 16.
-            im = cv2.resize(im, (912, 48))
-
-            assert(im.shape == (48, 912, 3)), 'Shape was {}'.format(im.shape)
+            im, bbox = resize(im, bbox)
 
             yield (im, bbox, obs)
 
@@ -80,12 +145,15 @@ def try_write():
     multi = mb.MultiBagStream(bt, ns.generate_numpystream)
     write_train_data(multi, '/home/eljefec/repo/squeezeDet/data/KITTI/panorama912x48')
 
+def make_tuple(bbox):
+    return (bbox[0], bbox[1])
+
 def try_draw_panoramas():
     import cv2
     import matplotlib.pyplot as plt
     import matplotlib.image as mpimg
-    # bagdir = '/data/bags/didi-round2/release/car/training/suburu_leading_front_left'
-    bagdir = '/data/bags/didi-round2/release/pedestrian/'
+    bagdir = '/data/bags/didi-round2/release/car/training/suburu_leading_front_left'
+    # bagdir = '/data/bags/didi-round2/release/pedestrian/'
     # bag_file = '/data/bags/didi-round2/release/car/testing/ford02.bag'
     bt = mb.find_bag_tracklets(bagdir, '/data/tracklets')
     multi = mb.MultiBagStream(bt, ns.generate_numpystream)
@@ -103,5 +171,5 @@ def try_draw_panoramas():
         plt.show()
 
 if __name__ == '__main__':
-    try_write()
-    # try_draw_panoramas()
+    # try_write()
+    try_draw_panoramas()
