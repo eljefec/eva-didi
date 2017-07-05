@@ -13,6 +13,9 @@ RUN_NAME=$1
 DIDI_DIR=/home/eljefec/repo/didi-competition/tracklets/python
 OUT_DIR=/data/out/$RUN_NAME
 
+# python python/run_squeezedet.py --bag_dir /data/bags/didi-round2/release/car/testing --do video --out_dir $OUT_DIR
+# python python/run_squeezedet.py --bag_file /data/bags/didi-round2/release/pedestrian/ped_test.bag --do video --out_dir $OUT_DIR
+
 # Generate tracklets for test set.
 python python/predict_tracklet.py --bag_dir /data/bags/didi-round2/release/car/testing --do tracklet --include_car --enable_birdseye --out_dir $OUT_DIR/test
 python python/predict_tracklet.py --bag_file /data/bags/didi-round2/release/pedestrian/ped_test.bag --do tracklet --include_ped --enable_birdseye --out_dir $OUT_DIR/test
