@@ -171,5 +171,5 @@ def try_draw_panoramas():
         plt.show()
 
 if __name__ == '__main__':
-    # try_write()
-    try_draw_panoramas()
+    try_write()
+    # try_draw_panoramas()
