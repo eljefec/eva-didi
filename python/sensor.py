@@ -138,7 +138,6 @@ def generate_msgs_bag(bag_file, topics):
 
         for i in range(msg_count):
             topic, msg, t  = messages.next()
-            assert(t == msg.header.stamp)
             yield msg
 
 class BagMsgQueue:
