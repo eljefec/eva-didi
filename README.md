@@ -2,16 +2,16 @@
 
 ### What is this repository for? ###
 
-This contains my work (Team Eva) on the Udacity-Didi competition (https://www.udacity.com/didi-challenge)
+This contains my work (Jeffrey Liu of Team Eva) on the Udacity-Didi competition (https://www.udacity.com/didi-challenge)
 
 ### Dependencies
 
 - Fork of squeezeDet
-  - https://github.com/eljefec/squeezeDet
-  - Original: https://github.com/BichenWuUCB/squeezeDet
+    - https://github.com/eljefec/squeezeDet
+    - Original: https://github.com/BichenWuUCB/squeezeDet
 - Fork of didi-competition
-  - https://github.com/eljefec/didi-competition
-  - Original: https://github.com/udacity/didi-competition
+    - https://github.com/eljefec/didi-competition
+    - Original: https://github.com/udacity/didi-competition
 
 ### File Overview
 
