@@ -45,6 +45,13 @@ def write_kitti_annotation(obs, birdseye_bbox, filename):
         for i in range(6):
             write_field(f, '0.0')
 
+def read_kitti_annotation(filename):
+    with open(filename, 'r') as f:
+        line = f.readline()
+        tokens = line.split()
+
+        return np.array([[tokens[4], tokens[5]], [tokens[6], tokens[7]]]).astype(np.int)
+
 # sc is "slice_config".
 def get_expected_shape(sc):
     return (1 + int((sc.SIDE_RANGE[1] - sc.SIDE_RANGE[0]) / sc.RESOLUTION),
