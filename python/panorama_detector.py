@@ -81,6 +81,13 @@ def summarize_bbox(bbox):
                     ])
     return bbox
 
+def clip_bbox(bbox):
+    for point in bbox:
+        if point[1] < 0:
+            point[1] = 0
+        elif point[1] >= NEW_SHAPE[0]:
+            point[1] = NEW_SHAPE[0] - 1
+
 def generate_panoramas(numpydata_generator):
     for numpydata in numpydata_generator:
         lidar = numpydata.lidar
@@ -98,6 +105,8 @@ def generate_panoramas(numpydata_generator):
             # Resize for squeezeDet, which requires dimensions that are multiples of 16.
             im, bbox = resize(im, bbox)
 
+            clip_bbox(bbox)
+
             yield (im, bbox, obs)
 
 def generate_panoramas_multi(multi):
@@ -107,7 +116,7 @@ def makedir(dir):
     if not os.path.exists(dir):
         os.makedirs(dir)
 
-def get_bbox_label_dirs(dir):
+def get_image_label_dirs(dir):
     imagedir = os.path.join(dir, 'image_2')
     labeldir = os.path.join(dir, 'label_2')
 
@@ -120,7 +129,7 @@ def get_image_path(imagedir, id):
     return util.traingen.get_example_path(imagedir, id, 'png')
 
 def write_train_data(multi, outdir):
-    labeldir, imagedir = get_bbox_label_dirs(outdir)
+    labeldir, imagedir = get_image_label_dirs(outdir)
 
     makedir(labeldir)
     makedir(imagedir)
@@ -137,6 +146,41 @@ def write_train_data(multi, outdir):
             print('Wrote {} examples.'.format(id))
 
     util.traingen.write_train_val(outdir, id)
+
+def generate_train_data(train_dir, index_file, infinite = True):
+    while True:
+        ids = []
+        with open(os.path.join(train_dir, index_file), 'r') as f:
+            for id in f:
+                ids.append(int(id))
+
+        print('len(ids)', len(ids))
+
+        labeldir, imagedir = get_image_label_dirs(train_dir)
+
+        for id in ids:
+            image_path = get_image_path(imagedir, id)
+            im = cv2.imread(image_path)
+
+            label_path = get_label_path(labeldir, id)
+            bbox = generate_kitti.read_kitti_annotation(label_path)
+
+            yield im, bbox
+
+        if not infinite:
+            return
+
+def explore_train_data():
+    train_dir = '/home/eljefec/repo/squeezeDet/data/KITTI/training'
+    generator = generate_train_data(train_dir, 'val.txt', infinite = False)
+    data = None
+    for im, bbox in generator:
+        if data is None:
+            data = np.array([bbox])
+        else:
+            data = np.append(data, [bbox], axis = 0)
+    print('data.shape', data.shape)
+    print('< zero', (data < 0).sum())
 
 def try_write():
     bagdir = '/data/bags/'
@@ -171,5 +215,6 @@ def try_draw_panoramas():
         plt.show()
 
 if __name__ == '__main__':
-    try_write()
+    explore_train_data()
+    # try_write()
     # try_draw_panoramas()
