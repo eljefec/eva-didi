@@ -7,11 +7,15 @@ This contains my work (Jeffrey Liu of Team Eva) on the Udacity-Didi competition 
 ### Dependencies
 
 - Fork of squeezeDet
+    - Add to PYTHONPATH
     - https://github.com/eljefec/squeezeDet
     - Original: https://github.com/BichenWuUCB/squeezeDet
 - Fork of didi-competition
+    - Add to PYTHONPATH
     - https://github.com/eljefec/didi-competition
     - Original: https://github.com/udacity/didi-competition
+- Install ROS
+- Install conda environment with `environment-gpu.yml`
 
 ### File Overview
 
