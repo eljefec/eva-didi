@@ -149,7 +149,7 @@ def try_rotating_images(train_dir):
             frames_since_last_conversion += 1
 
 def generate_birdseye_boxes_dir(train_dir, index_file, augment, infinite = True):
-    while infinite:
+    while True:
         ids = []
         with open(os.path.join(train_dir, index_file), 'r') as f:
             for id in f:
@@ -169,6 +169,9 @@ def generate_birdseye_boxes_dir(train_dir, index_file, augment, infinite = True)
                 (birdseye_box, yaw) = augment_example(birdseye_box, yaw)
 
             yield birdseye_box, yaw
+
+        if not infinite:
+            return
 
 def generate_birdseye_boxes(single_generator, batch_size):
     images = []
