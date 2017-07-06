@@ -4,8 +4,47 @@
 
 This contains my work (Team Eva) on the Udacity-Didi competition (https://www.udacity.com/didi-challenge)
 
-### Scripts
+### File Overview
 
+#### run_squeezedet.py
+- Old script for predicting tracklets and making videos of obstacle detections
+#### predict_tracklet.py
+- Latest script for predicting tracklets
+#### detection_pipeline.py
+- `class DetectionPipeline`
+- Combines different obstacle detectors into a single pipeline
+#### birdseye_detector.py
+- `class BirdsEyeDetector`
+- Detects cars and pedestrians in a bird's eye view of lidar
+- This performs well
+#### squeezedet.py
+- `class SqueezeDetector`
+- Performs 2D bounding box detection on trained squeezeDet models
+#### generate_kitti.py
+- `def generate_kitti(...)`
+- Generates training data for `class BirdsEyeDetector` in format expected by squeezeDet training scripts
+#### rotation_predictor.py
+- `class RotationPredictor`
+- Predicts rotation of obstacle from bird's eye view of lidar
+- This performs well
+#### panorama_detector.py
+- `class PanoramaDetector`
+- Detects cars and pedestrians in a panorama view of lidar
+- This is not finished
+#### radar_detector.py
+- `class RadarDetector`
+- This is not finished
+#### camera_detector.py
+- `class CameraDetector`
+- Detects cars and pedestrians from camera images
+- This does not perform well
+- `class ImageBoxToPosePredictor`
+- Predicts pose of obstacle based on 2D bounding box
+- This is a trained neural network
+#### kalman_filter.py
+- `class KalmanFilter`
+- Unscented kalman filter
+- This reduced accuracy of tracklets, but there may be some flaw in its implementation
 #### lidarbag.py
 - Convert ROS bags containing `velodyne_packets` messages to separate bags containing `velodyne_points` messages
 #### lidar.py
