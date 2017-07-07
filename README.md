@@ -19,6 +19,13 @@ This contains my work (Jeffrey Liu of Team Eva) on the Udacity-Didi competition 
 
 ### File Overview
 
+#### ros_node.py
+- ROS node that subscribes to messages (e.g., lidar) and runs them through `class DetectionPipeline`
+- Dependencies:
+    - velodyne driver must be running
+    - Command: `roslaunch velodyne_pointcloud 32e_points.launch`
+    - ROS master node must be running
+    - Command: `roscore`
 #### run_squeezedet.py
 - Old script for predicting tracklets and making videos of obstacle detections
 #### predict_tracklet.py
