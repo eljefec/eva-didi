@@ -19,6 +19,7 @@ from keras.layers import Conv2D, Dense, Input
 from keras.layers.pooling import MaxPooling2D
 from keras.models import Model, Sequential
 from keras.optimizers import Adam
+import tensorflow as tf
 
 INPUT_SHAPE=(50,50,3)
 
@@ -243,10 +244,13 @@ def get_model_filename(directory, suffix = '', ext = 'h5'):
 class RotationDetector:
     def __init__(self, model_path):
         self.model = keras.models.load_model(model_path)
+        self.model._make_predict_function()
+        self.graph = tf.get_default_graph()
 
     def detect_rotation(self, birdseye_box):
-        prediction = self.model.predict(np.array([birdseye_box]), batch_size=1, verbose=0)
-        return prediction
+        with self.graph.as_default():
+            prediction = self.model.predict(np.array([birdseye_box]), batch_size=1, verbose=0)
+            return prediction
 
 def get_latest_detector():
     abs_checkpoint_dir = '/home/eljefec/repo/eva-didi/python/checkpoints'
