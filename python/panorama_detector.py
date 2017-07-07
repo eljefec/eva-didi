@@ -196,7 +196,8 @@ def try_draw_panoramas():
     import cv2
     import matplotlib.pyplot as plt
     import matplotlib.image as mpimg
-    bagdir = '/data/bags/didi-round2/release/car/training/suburu_leading_front_left'
+    bagdir = '/data/bags/'
+    # bagdir = '/data/bags/didi-round2/release/car/training/suburu_leading_front_left'
     # bagdir = '/data/bags/didi-round2/release/pedestrian/'
     # bag_file = '/data/bags/didi-round2/release/car/testing/ford02.bag'
     bt = mb.find_bag_tracklets(bagdir, '/data/tracklets')
@@ -207,14 +208,12 @@ def try_draw_panoramas():
 
     id = 1
     for im, bbox, obs in generator:
-        print('bbox', bbox)
-        print('bbox[0]', bbox[0])
         cv2.rectangle(im, tuple(bbox[0]), tuple(bbox[1]), color = (255, 0, 0))
         im = cv2.resize(im, (0,0), fx=1.0, fy=8.0)
         plt.imshow(im)
         plt.show()
 
 if __name__ == '__main__':
-    explore_train_data()
-    # try_write()
+    # explore_train_data()
+    try_write()
     # try_draw_panoramas()
