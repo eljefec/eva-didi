@@ -13,19 +13,19 @@ This contains my work (Jeffrey Liu of Team Eva) on the Udacity-Didi competition 
 
 #### Car Detection
 
-This shows a car detection in a bird's eye view of lidar data. The blue rectangle indicates a detected car with a confidence of 0.83.
+This shows a car detection in a bird's eye view of lidar data. The blue rectangle indicates a detected car, and the label shows a confidence of 0.83.
 
 ![alt_text][car_detection]
 
 #### Pedestrian Detection
 
-This shows a pedestrian detection in a bird's eye view of lidar data. The pink square indicates a detected pedestrian with a confidence of 0.57.
+This shows a pedestrian detection in a bird's eye view of lidar data. The pink square indicates a detected pedestrian, and the label shows a confidence of 0.57.
 
 ![alt_text][ped_detection]
 
 #### Video
 
-`README/ford06.mp4` is a video of obstacle detections over a bird's eye view of lidar data. Car and pedestrian detections are indicated by bounding boxes labeled with a probability representing the model's confidence in the detection.
+[ford06.mp4](https://github.com/eljefec/eva-didi/blob/master/README/ford06.mp4) is a video of obstacle detections over a bird's eye view of lidar data. Car and pedestrian detections are marked by bounding boxes with a class and confidence label.
 
 ### Dependencies
 
