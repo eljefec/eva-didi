@@ -4,6 +4,29 @@
 
 This contains my work (Jeffrey Liu of Team Eva) on the Udacity-Didi competition (https://www.udacity.com/didi-challenge)
 
+### Example Output
+
+[//]: # (Image References)
+
+[car_detection]: ./README/car_detection.jpg "Car Detection"
+[ped_detection]: ./README/ped_detection.jpg "Pedestrian Detection"
+
+#### Car Detection
+
+This is a bird's eye view of lidar data. The blue rectangle indicates a detected car.
+
+![alt_text][car_detection]
+
+#### Pedestrian Detection
+
+This shows a pedestrian detection. The pink square indicates a detected pedestrian.
+
+![alt_text][ped_detection]
+
+#### Video
+
+`README/ford06.mp4` shows a bird's eye view of lidar data. Car and pedestrian detections are indicated by bounding boxes along with a probability representing the model's confidence in the detection.
+
 ### Dependencies
 
 - Fork of squeezeDet
