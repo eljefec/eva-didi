@@ -8,8 +8,8 @@ This contains my work (Jeffrey Liu of Team Eva) on the Udacity-Didi competition 
 
 [//]: # (Image References)
 
-[car_detection]: ./README/car_detection.jpg "Car Detection"
-[ped_detection]: ./README/ped_detection.jpg "Pedestrian Detection"
+[car_detection]: ./README/car_detection.png "Car Detection"
+[ped_detection]: ./README/ped_detection.png "Pedestrian Detection"
 
 #### Car Detection
 
