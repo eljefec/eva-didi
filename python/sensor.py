@@ -1,4 +1,3 @@
-import interval
 from lidar import PointCloudProcessor
 import lidarbag as lb
 import my_bag_utils as bu
@@ -16,7 +15,6 @@ class SensorMsgQueue:
 
         self.reset(check = False)
 
-        self.lidar_interval = interval.IntervalTracker(5)
         self.lidar_processor = PointCloudProcessor(hertz)
         self.lidar_processor.add_subscriber(self.on_lidar_msg)
 
@@ -61,7 +59,6 @@ class SensorMsgQueue:
         if self.next_lidar is None:
             try:
                 self.next_lidar = self.lidar_queue.get_nowait()
-                self.lidar_interval.report_event()
             except Queue.Empty:
                 pass
 
@@ -223,7 +220,6 @@ if __name__ == '__main__':
                     msg_counts[key] = 1
                 else:
                     msg_counts[key] += 1
-            # interval = msg_queue.lidar_interval.estimate_interval_secs()
             # if interval is not None:
             #    print('est: {0:.2f}'.format(interval))
 
