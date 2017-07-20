@@ -3,6 +3,7 @@ import numpy as np
 import birdseye_detector as bd
 import camera_detector as cd
 import kalman_filter as kf
+import util.stopwatch as sw
 
 class DetectionPipeline:
     def __init__(self, enable_birdseye, enable_camera, enable_kalman):
@@ -30,11 +31,14 @@ class DetectionPipeline:
         self.lidar_lost_ped = False
 
     def detect_lidar(self, lidar, t):
+        stopwatch = sw.Stopwatch()
         if self.birdseye_detector is not None:
             car, ped = self.birdseye_detector.detect(lidar)
             self._add_detection(car, ped, t)
             self.lidar_lost_car = (car is None)
             self.lidar_lost_ped = (ped is None)
+        stopwatch.stop()
+        print('Detection time (secs): {}', stopwatch.format_duration(coarse = False))
 
     def detect_image(self, image, t):
         if self.camera_detector is not None:
